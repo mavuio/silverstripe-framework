@@ -636,6 +636,14 @@ class HTTPRequest implements ArrayAccess
         return $value;
     }
 
+
+    // mwuits, added function 2012 ---------- BEGIN
+    function setLatestParam($name,$val)
+    {
+        $this->latestParams[$name]=$val;
+    }
+    // mwuits, added function 2012 ---------- END
+    
     /**
      * @return array
      */
