@@ -215,7 +215,13 @@ class ThemeResourceLoader
                 // Join path
                 $pathParts = [ $this->base, $themePath, 'templates', $head, $type, $tail ];
                 $path = implode('/', array_filter($pathParts)) . '.ss';
+                if($_GET['tpldebug']) {
+                    echo "\n<li>looking for ".$path;
+                }
                 if (file_exists($path)) {
+                    if($_GET['tpldebug']) {
+                        echo "\n✔ found";
+                    }
                     return $path;
                 }
             }
