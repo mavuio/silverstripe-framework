@@ -13,7 +13,7 @@ SilverStripe\Control\Director:
   rules:
     'Security//$Action/$ID/$OtherID': SilverStripe\Security\Security
     'CMSSecurity//$Action/$ID/$OtherID': SilverStripe\Security\CMSSecurity
-    'dev': SilverStripe\Dev\DevelopmentAdmin
+    'dev//$Action/$ID/$OtherID': SilverStripe\Dev\DevelopmentAdmin #mwuits added //$Action/$ID/$OtherID 2018-01-26
     'interactive': SilverStripe\Dev\SapphireREPL
     'InstallerTest//$Action/$ID/$OtherID': SilverStripe\Dev\InstallerTest
     'SapphireInfo//$Action/$ID/$OtherID': SilverStripe\Dev\SapphireInfo
@@ -27,4 +27,4 @@ Except:
 ---
 SilverStripe\Control\Director:
   rules:
-    'Security//$Action/$ID/$OtherID': '%$RateLimitedSecurityController'
+      'Security//$Action/$ID/$OtherID': '%$RateLimitedSecurityController'
