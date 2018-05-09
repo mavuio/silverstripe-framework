@@ -939,6 +939,9 @@ class InstallRequirements
 
     public function testApacheRewriteExists($moduleName = 'mod_rewrite')
     {
+        //mwuits: don't check this
+        return true;
+
         if (function_exists('apache_get_modules') && in_array($moduleName, apache_get_modules())) {
             return true;
         }
