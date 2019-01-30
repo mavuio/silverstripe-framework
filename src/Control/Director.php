@@ -304,11 +304,20 @@ class Director implements TemplateGlobalProvider
      */
     public function handleRequest(HTTPRequest $request)
     {
+
+        // mwuits: hook for MwVhostMapper - Url-Handling ---------- BEGIN
+            $request = \MwVhostMapper::handleRequestHook4Director($request);
+        // mwuits: hook for MwVhostMapper - Url-Handling ---------- END
+
+
         Injector::inst()->registerService($request, HTTPRequest::class);
 
+        
         $rules = Director::config()->uninherited('rules');
 
         $this->extend('updateRules', $rules);
+
+
 
         // Default handler - mo URL rules matched, so return a 404 error.
         $handler = function () {

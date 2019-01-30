@@ -367,6 +367,35 @@ class HTTPRequest implements ArrayAccess
         return $this->headers;
     }
 
+   // mwuits fix for MwVhostMapper - Url-Handling ---------- BEGIN
+	function setHeaders($headers) {
+		return $this->headers=$headers;
+	}
+    
+    public function fixParamsForMwVhostMapper()
+    {
+        $this->allParams=Array();
+        $this->allParams['URLSegment']=$this->dirParts[0];
+        $this->allParams['Action']=$this->dirParts[1];
+        $this->allParams['ID']=$this->dirParts[2];
+        $this->allParams['OtherID']=$this->dirParts[3];
+        
+        foreach ($this->dirParts as $key => $value) {
+            if($key)
+                $newDirParts[]=$value;
+        }
+        
+        $this->dirParts=$newDirParts;
+        
+        $this->latestParams=$this->allParams;
+        
+        $this->unshiftedButParsedParts=3; //why ? don't figured out yet, but its always 3
+    }
+    
+    // mwuits fix for MwVhostMapper - Url-Handling ---------- END
+
+
+
     /**
      * Remove an existing HTTP header
      *

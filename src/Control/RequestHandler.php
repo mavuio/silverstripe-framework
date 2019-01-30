@@ -158,7 +158,7 @@ class RequestHandler extends ViewableData
         $this->setRequest($request);
 
 
-        $match = $this->findAction(clone $request); //mwuits 2018-01-24: added clone keyword
+        $match = $this->findAction($request);
 
         // If nothing matches, return this object
         if (!$match) {
