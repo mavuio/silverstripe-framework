@@ -390,11 +390,15 @@ class Director implements TemplateGlobalProvider
      *
      * @return SiteTree|Controller
      */
-    public static function get_current_page()
-    {
-        return self::$current_page ? self::$current_page : Controller::curr();
-    }
-
+    public static function get_current_page() {
+		//mwuits added AliasPage handling here --- begin
+		$ret=self::$current_page ? self::$current_page : Controller::curr();
+		if ($ret->AliasPage) {
+			$ret=$ret->AliasPage;
+		}
+		return $ret;
+		//mwuits added AliasPage handling here --- end
+	}
     /**
      * Set the currently active {@link SiteTree} object that is being used to respond to the request.
      *
