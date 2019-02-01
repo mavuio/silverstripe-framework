@@ -567,7 +567,7 @@ class ViewableData implements IteratorAggregate
     /**
      * Return a single-item iterator so you can iterate over the fields of a single record.
      *
-     * This is useful so you can use a single record inside a <% control %> block in a template - and then use
+     * This is useful so you can use a single record inside a <% loop %> block in a template - and then use
      * to access individual fields on this object.
      *
      * @return ArrayIterator

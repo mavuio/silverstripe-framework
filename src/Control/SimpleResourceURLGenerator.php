@@ -19,7 +19,7 @@ class SimpleResourceURLGenerator implements ResourceURLGenerator
      * to ensure the file is available.
      *
      * @config
-     * @var array
+     * @var    array
      */
     private static $url_rewrites = [
         '#^vendor/#i' => 'resources/',
@@ -59,7 +59,7 @@ class SimpleResourceURLGenerator implements ResourceURLGenerator
     /**
      * Return the URL for a resource, prefixing with Director::baseURL() and suffixing with a nonce
      *
-     * @param string|ModuleResource $relativePath File or directory path relative to BASE_PATH
+     * @param  string|ModuleResource $relativePath File or directory path relative to BASE_PATH
      * @return string Doman-relative URL
      * @throws InvalidArgumentException If the resource doesn't exist
      */
@@ -77,7 +77,7 @@ class SimpleResourceURLGenerator implements ResourceURLGenerator
             $exists = file_exists($absolutePath);
         }
         if (!$exists) {
-            throw new InvalidArgumentException("File {$relativePath} does not exist");
+            throw new InvalidArgumentException("File {$relativePath} does not exist at {$absolutePath}");
         }
 
         // Apply url rewrites
