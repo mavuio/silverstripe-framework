@@ -88,7 +88,8 @@ abstract class DBString extends DBField
     {
         $value = $this->RAW();
         // All truthy values and non-empty strings exist ('0' but not (int)0)
-        return $value || (is_string($value) && strlen($value));
+
+        return $value; // mwuits: keep old behaviour || (is_string($value) && strlen($value));
     }
 
     public function prepValueForDB($value)
