@@ -80,7 +80,7 @@ class Controller extends RequestHandler implements TemplateGlobalProvider
      * @var array
      */
     private static $url_handlers = array(
-        '$Action//$ID/$OtherID' => 'handleAction',
+        '$Action//$ID/$OtherID/$OtherID2' => 'handleAction',         //mwuits: added OtherID2
     );
 
     /**
