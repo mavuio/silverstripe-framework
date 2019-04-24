@@ -21,7 +21,7 @@ class Requirements implements Flushable
      * and thus updated manually, you might want to turn this on to disable this behaviour.
      *
      * @config
-     * @var bool
+     * @var    bool
      */
     private static $disable_flush_combined = false;
 
@@ -294,7 +294,7 @@ class Requirements implements Flushable
      * requirements. Needs to receive a valid HTML/XHTML template in the $content parameter,
      * including a head and body tag.
      *
-     * @param string $content      HTML content that has already been parsed from the $templateFile
+     * @param  string $content      HTML content that has already been parsed from the $templateFile
      *                             through {@link SSViewer}
      * @return string HTML content augmented with the requirements tags
      */
@@ -522,5 +522,16 @@ class Requirements implements Flushable
     public static function debug()
     {
         self::backend()->debug();
+    }
+
+//mwuits:
+    public static function setMwCacheKey($cachekey)
+    {
+        return self::backend()->setMwCacheKey($cachekey);
+    }
+    
+    public static function setMwCacheMode($mode)
+    {
+        return self::backend()->setMwCacheMode($mode);
     }
 }

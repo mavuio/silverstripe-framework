@@ -18,6 +18,9 @@ use SilverStripe\Dev\Debug;
 use SilverStripe\Dev\Deprecation;
 use SilverStripe\i18n\i18n;
 
+//mwuits:
+use Psr\SimpleCache\CacheInterface;
+
 class Requirements_Backend
 {
     use Injectable;
@@ -46,7 +49,7 @@ class Requirements_Backend
      * live environments. Turning this on will allow for pre-combining of files in development mode.
      *
      * @config
-     * @var bool
+     * @var    bool
      */
     private static $combine_in_dev = false;
 
@@ -169,7 +172,7 @@ class Requirements_Backend
      * necessary to distinguish combined files from other assets.
      *
      * @config
-     * @var string
+     * @var    string
      */
     private static $default_combined_files_folder = '_combinedfiles';
 
@@ -184,7 +187,7 @@ class Requirements_Backend
      * the filename itself. I.e. `assets/_combinedfiles/name.js?m=<hash>`
      *
      * @config
-     * @var bool
+     * @var    bool
      */
     private static $combine_hash_querystring = false;
 
@@ -222,7 +225,7 @@ class Requirements_Backend
      * Gets the minification service for this backend
      *
      * @deprecated 4.0..5.0
-     * @return Requirements_Minifier
+     * @return     Requirements_Minifier
      */
     public function getMinifier()
     {
@@ -262,7 +265,7 @@ class Requirements_Backend
     /**
      * Flag whether header comments should be written for each combined file
      *
-     * @param bool $write
+     * @param  bool $write
      * @return $this
      */
     public function setWriteHeaderComment($write)
@@ -325,7 +328,7 @@ class Requirements_Backend
      * Set whether you want to write the JS to the body of the page rather than at the end of the
      * head tag.
      *
-     * @param bool
+     * @param  bool
      * @return $this
      */
     public function setWriteJavascriptToBody($var)
@@ -348,7 +351,7 @@ class Requirements_Backend
     /**
      * Forces the JavaScript requirements to the end of the body, right before the closing tag
      *
-     * @param bool
+     * @param  bool
      * @return $this
      */
     public function setForceJSToBottom($var)
@@ -380,7 +383,7 @@ class Requirements_Backend
     /**
      * Set if combined files should be minified
      *
-     * @param bool $minify
+     * @param  bool $minify
      * @return $this
      */
     public function setMinifyCombinedFiles($minify)
@@ -432,7 +435,7 @@ class Requirements_Backend
         $this->javascript[$file] = array(
             'async' => $async,
             'defer' => $defer,
-            'type' => $type,
+            'type'  => $type,
         );
 
         // Record scripts included in this file
@@ -629,7 +632,7 @@ class Requirements_Backend
         $file = ModuleResourceLoader::singleton()->resolvePath($file);
 
         $this->css[$file] = array(
-            "media" => $media
+            "media" => $media,
         );
     }
 
@@ -763,7 +766,7 @@ class Requirements_Backend
      * requirements. Needs to receive a valid HTML/XHTML template in the $content parameter,
      * including a head and body tag.
      *
-     * @param string $content HTML content that has already been parsed from the $templateFile
+     * @param  string $content HTML content that has already been parsed from the $templateFile
      *                             through {@link SSViewer}
      * @return string HTML content augmented with the requirements tags
      */
@@ -794,7 +797,7 @@ class Requirements_Backend
             // Build html attributes
             $htmlAttributes = [
                 'type' => isset($attributes['type']) ? $attributes['type'] : "application/javascript",
-                'src' => $this->pathForFile($file),
+                'src'  => $this->pathForFile($file),
             ];
             if (!empty($attributes['async'])) {
                 $htmlAttributes['async'] = 'async';
@@ -819,7 +822,7 @@ class Requirements_Backend
         // CSS file links
         foreach ($this->getCSS() as $file => $params) {
             $htmlAttributes = [
-                'rel' => 'stylesheet',
+                'rel'  => 'stylesheet',
                 'type' => 'text/css',
                 'href' => $this->pathForFile($file),
             ];
@@ -840,8 +843,28 @@ class Requirements_Backend
             $requirements .= "{$customHeadTag}\n";
         }
 
+        //mwuits:
+        if ($this->mwCacheKey && $this->mwCacheMode=='set') {
+             $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
+             $cacheInst->set($this->mwCacheKey, [
+                 'requirements'   => $requirements,
+                 'jsRequirements' => $jsRequirements,
+             ]);
+        }
+
+        if ($this->mwCacheKey && $this->mwCacheMode=='get') {
+            $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
+            if ($cacheInst->has($this->mwCacheKey)) {
+                $cache=$cacheInst->get($this->mwCacheKey);
+
+                $requirements=$cache["requirements"];
+                $jsRequirements=$cache["jsRequirements"];
+            }
+        }
+
         // Inject CSS  into body
         $content = $this->insertTagsIntoHead($requirements, $content);
+
 
         // Inject scripts
         if ($this->getForceJSToBottom()) {
@@ -854,12 +877,27 @@ class Requirements_Backend
         return $content;
     }
 
+    var $mwCacheKey=null;
+    var $mwCacheMode=null;
+
+    //mwuits:
+    public function setMwCacheKey($cachekey)
+    {
+        $this->mwCacheKey="req_".$cachekey;
+    }
+
+    //mwuits:
+    public function setMwCacheMode($mode)
+    {
+        $this->mwCacheMode=$mode;
+    }
+
     /**
      * Given a block of HTML, insert the given scripts at the bottom before
      * the closing </body> tag
      *
-     * @param string $jsRequirements String containing one or more javascript <script /> tags
-     * @param string $content HTML body
+     * @param  string $jsRequirements String containing one or more javascript <script /> tags
+     * @param  string $content HTML body
      * @return string Merged HTML
      */
     protected function insertScriptsAtBottom($jsRequirements, $content)
@@ -877,8 +915,8 @@ class Requirements_Backend
     /**
      * Given a block of HTML, insert the given scripts inside the <body></body>
      *
-     * @param string $jsRequirements String containing one or more javascript <script /> tags
-     * @param string $content HTML body
+     * @param  string $jsRequirements String containing one or more javascript <script /> tags
+     * @param  string $content HTML body
      * @return string Merged HTML
      */
     protected function insertScriptsIntoBody($jsRequirements, $content)
@@ -914,8 +952,8 @@ class Requirements_Backend
     /**
      * Given a block of HTML, insert the given code inside the <head></head> block
      *
-     * @param string $jsRequirements String containing one or more html tags
-     * @param string $content HTML body
+     * @param  string $jsRequirements String containing one or more html tags
+     * @param  string $content HTML body
      * @return string Merged HTML
      */
     protected function insertTagsIntoHead($jsRequirements, $content)
@@ -931,7 +969,7 @@ class Requirements_Backend
     /**
      * Safely escape a literal string for use in preg_replace replacement
      *
-     * @param string $replacement
+     * @param  string $replacement
      * @return string
      */
     protected function escapeReplacement($replacement)
@@ -1025,7 +1063,7 @@ class Requirements_Backend
     /**
      * Finds the path for specified file
      *
-     * @param string $fileOrUrl
+     * @param  string $fileOrUrl
      * @return string|bool
      */
     protected function pathForFile($fileOrUrl)
@@ -1144,8 +1182,8 @@ class Requirements_Backend
         }
 
         $this->combinedFiles[$combinedFileName] = array(
-            'files' => $paths,
-            'type' => $combinedType,
+            'files'   => $paths,
+            'type'    => $combinedType,
             'options' => $options,
         );
     }
@@ -1153,14 +1191,17 @@ class Requirements_Backend
     /**
      * Return path and type of given combined file
      *
-     * @param string|array $file Either a file path, or an array spec
+     * @param  string|array $file Either a file path, or an array spec
      * @return array array with two elements, path and type of file
      */
     protected function parseCombinedFile($file)
     {
         // Array with path and type keys
         if (is_array($file) && isset($file['path']) && isset($file['type'])) {
-            return array($file['path'], $file['type']);
+            return array(
+                $file['path'],
+                $file['type'],
+            );
         }
 
         // Extract value from indexed array
@@ -1170,7 +1211,10 @@ class Requirements_Backend
             // See if there's a type specifier
             if ($file) {
                 $type = array_shift($file);
-                return array($path, $type);
+                return array(
+                    $path,
+                    $type,
+                );
             }
 
             // Otherwise convent to string
@@ -1178,7 +1222,10 @@ class Requirements_Backend
         }
 
         $type = File::get_file_extension($file);
-        return array($file, $type);
+        return array(
+            $file,
+            $type,
+        );
     }
 
     /**
@@ -1295,9 +1342,9 @@ class Requirements_Backend
     /**
      * Given a set of files, combine them (as necessary) and return the url
      *
-     * @param string $combinedFile Filename for this combined file
-     * @param array $fileList List of files to combine
-     * @param string $type Either 'js' or 'css'
+     * @param  string $combinedFile Filename for this combined file
+     * @param  array $fileList List of files to combine
+     * @param  string $type Either 'js' or 'css'
      * @return string|null URL to this resource, if there are files to combine
      * @throws Exception
      */
@@ -1372,8 +1419,8 @@ MESSAGE
     /**
      * Given a filename and list of files, generate a new filename unique to these files
      *
-     * @param string $combinedFile
-     * @param array $fileList
+     * @param  string $combinedFile
+     * @param  array $fileList
      * @return string
      */
     protected function hashedCombinedFilename($combinedFile, $fileList)
@@ -1408,7 +1455,7 @@ MESSAGE
      * For a given filelist, determine some discriminating value to determine if
      * any of these files have changed.
      *
-     * @param array $fileList List of files
+     * @param  array $fileList List of files
      * @return string SHA1 bashed file hash
      */
     protected function hashOfFiles($fileList)

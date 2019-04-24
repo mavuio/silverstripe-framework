@@ -57,7 +57,7 @@ class CoreConfigFactory
         // Create config cache
         if ($this->cacheFactory) {
             $cache = $this->cacheFactory->create(CacheInterface::class . '.configcache', [
-                'namespace' => 'configcache'
+                'namespace' => 'configcache',
             ]);
             $instance->setCache($cache);
         }
@@ -88,7 +88,7 @@ class CoreConfigFactory
         // Transform
         $config->transform([
             $this->buildStaticTransformer(),
-            $this->buildYamlTransformer()
+            $this->buildYamlTransformer(),
         ]);
 
         return $config;
@@ -109,7 +109,6 @@ class CoreConfigFactory
                 $dirs[] = $path;
             }
         }
-
         return $this->buildYamlTransformerForPath($dirs);
     }
 
@@ -176,7 +175,9 @@ class CoreConfigFactory
             ->addRule('environment', function ($env) {
                 // Note: The below relies on direct assignment of kernel to injector instance,
                 // and will fail if failing back to config service locator
-                /** @var Kernel $kernel */
+                /**
+ * @var Kernel $kernel
+*/
                 $kernel = Injector::inst()->get(Kernel::class);
                 return strtolower($kernel->getEnvironment()) === strtolower($env);
             })
