@@ -846,6 +846,14 @@ class Requirements_Backend
         //mwuits:
         if ($this->mwCacheKey && $this->mwCacheMode=='set') {
              $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
+	     if(array_key_exists('reqcachedebug',$_GET)) { 
+	     $x= [
+                 'requirements'   => $requirements,
+                 'jsRequirements' => $jsRequirements,
+             ]; 
+	     $x=htmlspecialchars(print_r($x,1));echo "\n<li>set req cache: ({$this->mwCacheKey})<pre>$x</pre>"; 
+
+		}
              $cacheInst->set($this->mwCacheKey, [
                  'requirements'   => $requirements,
                  'jsRequirements' => $jsRequirements,
@@ -854,6 +862,18 @@ class Requirements_Backend
 
         if ($this->mwCacheKey && $this->mwCacheMode=='get') {
             $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
+
+
+	     if(array_key_exists('reqcachedebug',$_GET)) { 
+	     
+	     $x=$cacheInst->has($this->mwCacheKey)?"hit":"miss";
+if($x=="hit") {
+$x=$cacheInst->get($this->mwCacheKey);
+}  
+	     $x=htmlspecialchars(print_r($x,1));echo "\n<li>get req cache: ({$this->mwCacheKey})<pre>$x</pre>"; 
+
+		}
+
             if ($cacheInst->has($this->mwCacheKey)) {
                 $cache=$cacheInst->get($this->mwCacheKey);
 
