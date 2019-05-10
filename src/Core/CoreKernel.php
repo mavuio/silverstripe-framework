@@ -326,10 +326,12 @@ class CoreKernel implements Kernel
      */
     protected function getDatabaseConfig()
     {
-        /** @skipUpgrade */
+        /**
+ * @skipUpgrade
+*/
         $databaseConfig = [
-            "type" => Environment::getEnv('SS_DATABASE_CLASS') ?: 'MySQLDatabase',
-            "server" => Environment::getEnv('SS_DATABASE_SERVER') ?: 'localhost',
+            "type"     => Environment::getEnv('SS_DATABASE_CLASS') ?: 'MySQLDatabase',
+            "server"   => Environment::getEnv('SS_DATABASE_SERVER') ?: 'localhost',
             "username" => Environment::getEnv('SS_DATABASE_USERNAME') ?: null,
             "password" => Environment::getEnv('SS_DATABASE_PASSWORD') ?: null,
         ];
@@ -533,6 +535,8 @@ class CoreKernel implements Kernel
         if ($errorLog) {
             $logger = Injector::inst()->get(LoggerInterface::class);
             if ($logger instanceof Logger) {
+                $logger->pushProcessor(new \Monolog\Processor\WebProcessor()); // mwuits 2019-05-10
+
                 $logger->pushHandler(new StreamHandler($this->basePath . '/' . $errorLog, Logger::WARNING));
             } else {
                 user_error("SS_ERROR_LOG setting only works with Monolog, you are using another logger", E_USER_WARNING);
