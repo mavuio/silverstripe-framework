@@ -533,12 +533,14 @@ class CoreKernel implements Kernel
         // Register error log file
         $errorLog = Environment::getEnv('SS_ERROR_LOG');
         if ($errorLog) {
+            $logger = Injector::inst()->get(LoggerInterface::class);
+            if ($logger instanceof Logger) {
                 $logger->pushHandler(new StreamHandler($this->basePath . '/' . $errorLog, Logger::WARNING));
-        } else {
-            user_error("SS_ERROR_LOG setting only works with Monolog, you are using another logger", E_USER_WARNING);
+            } else {
+                user_error("SS_ERROR_LOG setting only works with Monolog, you are using another logger", E_USER_WARNING);
+            }
         }
     }
-
 
     public function shutdown()
     {
@@ -561,8 +563,8 @@ class CoreKernel implements Kernel
 
         // Self register
         $this->getInjectorLoader()
-        ->getManifest()
-        ->registerService($this, Kernel::class);
+            ->getManifest()
+            ->registerService($this, Kernel::class);
         return $this;
     }
 
@@ -580,8 +582,8 @@ class CoreKernel implements Kernel
     {
         $this->injectorLoader = $injectorLoader;
         $injectorLoader
-        ->getManifest()
-        ->registerService($this, Kernel::class);
+            ->getManifest()
+            ->registerService($this, Kernel::class);
         return $this;
     }
 
