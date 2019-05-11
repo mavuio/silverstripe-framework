@@ -533,119 +533,115 @@ class CoreKernel implements Kernel
         // Register error log file
         $errorLog = Environment::getEnv('SS_ERROR_LOG');
         if ($errorLog) {
-            $logger = Injector::inst()->get(LoggerInterface::class);
-            if ($logger instanceof Logger) {
-                $logger->pushProcessor(new \Monolog\Processor\WebProcessor()); // mwuits 2019-05-10
-
                 $logger->pushHandler(new StreamHandler($this->basePath . '/' . $errorLog, Logger::WARNING));
-            } else {
-                user_error("SS_ERROR_LOG setting only works with Monolog, you are using another logger", E_USER_WARNING);
-            }
+        } else {
+            user_error("SS_ERROR_LOG setting only works with Monolog, you are using another logger", E_USER_WARNING);
         }
     }
+}
 
-    public function shutdown()
-    {
+public function shutdown()
+{
+}
+
+public function nest()
+{
+    // Clone this kernel, nesting config / injector manifest containers
+    $kernel = clone $this;
+    $kernel->setConfigLoader($this->configLoader->nest());
+    $kernel->setInjectorLoader($this->injectorLoader->nest());
+    $kernel->nestedFrom = $this;
+    return $kernel;
+}
+
+public function activate()
+{
+    $this->configLoader->activate();
+    $this->injectorLoader->activate();
+
+    // Self register
+    $this->getInjectorLoader()
+        ->getManifest()
+        ->registerService($this, Kernel::class);
+    return $this;
+}
+
+public function getNestedFrom()
+{
+    return $this->nestedFrom;
+}
+
+public function getContainer()
+{
+    return $this->getInjectorLoader()->getManifest();
+}
+
+public function setInjectorLoader(InjectorLoader $injectorLoader)
+{
+    $this->injectorLoader = $injectorLoader;
+    $injectorLoader
+        ->getManifest()
+        ->registerService($this, Kernel::class);
+    return $this;
+}
+
+public function getInjectorLoader()
+{
+    return $this->injectorLoader;
+}
+
+public function getClassLoader()
+{
+    return $this->classLoader;
+}
+
+public function setClassLoader(ClassLoader $classLoader)
+{
+    $this->classLoader = $classLoader;
+    return $this;
+}
+
+public function getModuleLoader()
+{
+    return $this->moduleLoader;
+}
+
+public function setModuleLoader(ModuleLoader $moduleLoader)
+{
+    $this->moduleLoader = $moduleLoader;
+    return $this;
+}
+
+public function setEnvironment($environment)
+{
+    if (!in_array($environment, [self::DEV, self::TEST, self::LIVE, null])) {
+        throw new InvalidArgumentException(
+            "Director::set_environment_type passed '$environment'.  It should be passed dev, test, or live"
+        );
     }
+    $this->enviroment = $environment;
+    return $this;
+}
 
-    public function nest()
-    {
-        // Clone this kernel, nesting config / injector manifest containers
-        $kernel = clone $this;
-        $kernel->setConfigLoader($this->configLoader->nest());
-        $kernel->setInjectorLoader($this->injectorLoader->nest());
-        $kernel->nestedFrom = $this;
-        return $kernel;
-    }
+public function getConfigLoader()
+{
+    return $this->configLoader;
+}
 
-    public function activate()
-    {
-        $this->configLoader->activate();
-        $this->injectorLoader->activate();
+public function setConfigLoader($configLoader)
+{
+    $this->configLoader = $configLoader;
+    return $this;
+}
 
-        // Self register
-        $this->getInjectorLoader()
-            ->getManifest()
-            ->registerService($this, Kernel::class);
-        return $this;
-    }
+public function getThemeResourceLoader()
+{
+    return $this->themeResourceLoader;
+}
 
-    public function getNestedFrom()
-    {
-        return $this->nestedFrom;
-    }
-
-    public function getContainer()
-    {
-        return $this->getInjectorLoader()->getManifest();
-    }
-
-    public function setInjectorLoader(InjectorLoader $injectorLoader)
-    {
-        $this->injectorLoader = $injectorLoader;
-        $injectorLoader
-            ->getManifest()
-            ->registerService($this, Kernel::class);
-        return $this;
-    }
-
-    public function getInjectorLoader()
-    {
-        return $this->injectorLoader;
-    }
-
-    public function getClassLoader()
-    {
-        return $this->classLoader;
-    }
-
-    public function setClassLoader(ClassLoader $classLoader)
-    {
-        $this->classLoader = $classLoader;
-        return $this;
-    }
-
-    public function getModuleLoader()
-    {
-        return $this->moduleLoader;
-    }
-
-    public function setModuleLoader(ModuleLoader $moduleLoader)
-    {
-        $this->moduleLoader = $moduleLoader;
-        return $this;
-    }
-
-    public function setEnvironment($environment)
-    {
-        if (!in_array($environment, [self::DEV, self::TEST, self::LIVE, null])) {
-            throw new InvalidArgumentException(
-                "Director::set_environment_type passed '$environment'.  It should be passed dev, test, or live"
-            );
-        }
-        $this->enviroment = $environment;
-        return $this;
-    }
-
-    public function getConfigLoader()
-    {
-        return $this->configLoader;
-    }
-
-    public function setConfigLoader($configLoader)
-    {
-        $this->configLoader = $configLoader;
-        return $this;
-    }
-
-    public function getThemeResourceLoader()
-    {
-        return $this->themeResourceLoader;
-    }
-
-    public function setThemeResourceLoader($themeResourceLoader)
-    {
-        $this->themeResourceLoader = $themeResourceLoader;
-        return $this;
-    }
+public function setThemeResourceLoader($themeResourceLoader)
+{
+    $this->themeResourceLoader = $themeResourceLoader;
+    return $this;
+}
 }
