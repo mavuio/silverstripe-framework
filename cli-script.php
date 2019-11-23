@@ -5,6 +5,8 @@ use SilverStripe\Control\CLIRequestBuilder;
 use SilverStripe\Control\HTTPApplication;
 use SilverStripe\Core\CoreKernel;
 
+define('ASSETS_DIR', 'files'); //mwuits
+
 require __DIR__ . '/src/includes/autoload.php';
 
 // Ensure that people can't access this from a web-server
