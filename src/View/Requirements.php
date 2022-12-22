@@ -365,8 +365,8 @@ class Requirements implements Flushable
      * Requirements::combine_files(
      *  'foobar.js',
      *  array(
-     *        'mysite/javascript/foo.js',
-     *        'mysite/javascript/bar.js',
+     *        'javascript/foo.js',
+     *        'javascript/bar.js',
      *    )
      * );
      * </code>
@@ -376,8 +376,8 @@ class Requirements implements Flushable
      * Requirements::combine_files(
      *  'foobar.css',
      *    array(
-     *        'mysite/javascript/foo.css',
-     *        'mysite/javascript/bar.css',
+     *        'javascript/foo.css',
+     *        'javascript/bar.css',
      *    )
      * );
      * </code>
@@ -527,12 +527,12 @@ class Requirements implements Flushable
         self::backend()->debug();
     }
 
-//mwuits:
+    //mwuits:
     public static function setMwCacheKey($cachekey)
     {
         return self::backend()->setMwCacheKey($cachekey);
     }
-    
+
     public static function setMwCacheMode($mode)
     {
         return self::backend()->setMwCacheMode($mode);

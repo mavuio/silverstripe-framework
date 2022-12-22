@@ -436,18 +436,14 @@ class Requirements_Backend
         }
 
         // make sure that async/defer is set if it is set once even if file is included multiple times
-        $async = (
-            isset($options['async']) && $options['async']
-            || (
-                isset($this->javascript[$file])
+        $async = (isset($options['async']) && $options['async']
+            || (isset($this->javascript[$file])
                 && isset($this->javascript[$file]['async'])
                 && $this->javascript[$file]['async']
             )
         );
-        $defer = (
-            isset($options['defer']) && $options['defer']
-            || (
-                isset($this->javascript[$file])
+        $defer = (isset($options['defer']) && $options['defer']
+            || (isset($this->javascript[$file])
                 && isset($this->javascript[$file]['defer'])
                 && $this->javascript[$file]['defer']
             )
@@ -862,7 +858,7 @@ class Requirements_Backend
         foreach ($this->getCustomScripts() as $script) {
             $jsRequirements .= HTML::createTag(
                 'script',
-                [ 'type' => 'application/javascript' ],
+                ['type' => 'application/javascript'],
                 "//<![CDATA[\n{$script}\n//]]>"
             );
             $jsRequirements .= "\n";
@@ -899,41 +895,41 @@ class Requirements_Backend
         }
 
         //mwuits:
-        if ($this->mwCacheKey && $this->mwCacheMode=='set') {
-             $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
-	     if(array_key_exists('reqcachedebug',$_GET)) { 
-	     $x= [
-                 'requirements'   => $requirements,
-                 'jsRequirements' => $jsRequirements,
-             ]; 
-	     $x=htmlspecialchars(print_r($x,1));echo "\n<li>set req cache: ({$this->mwCacheKey})<pre>$x</pre>"; 
-
-		}
-             $cacheInst->set($this->mwCacheKey, [
-                 'requirements'   => $requirements,
-                 'jsRequirements' => $jsRequirements,
-             ]);
+        if ($this->mwCacheKey && $this->mwCacheMode == 'set') {
+            $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
+            if (array_key_exists('reqcachedebug', $_GET)) {
+                $x = [
+                    'requirements'   => $requirements,
+                    'jsRequirements' => $jsRequirements,
+                ];
+                $x = htmlspecialchars(print_r($x, 1));
+                echo "\n<li>set req cache: ({$this->mwCacheKey})<pre>$x</pre>";
+            }
+            $cacheInst->set($this->mwCacheKey, [
+                'requirements'   => $requirements,
+                'jsRequirements' => $jsRequirements,
+            ]);
         }
 
-        if ($this->mwCacheKey && $this->mwCacheMode=='get') {
+        if ($this->mwCacheKey && $this->mwCacheMode == 'get') {
             $cacheInst = Injector::inst()->get(CacheInterface::class . '.cacheblock');
 
 
-	     if(array_key_exists('reqcachedebug',$_GET)) { 
-	     
-	     $x=$cacheInst->has($this->mwCacheKey)?"hit":"miss";
-if($x=="hit") {
-$x=$cacheInst->get($this->mwCacheKey);
-}  
-	     $x=htmlspecialchars(print_r($x,1));echo "\n<li>get req cache: ({$this->mwCacheKey})<pre>$x</pre>"; 
+            if (array_key_exists('reqcachedebug', $_GET)) {
 
-		}
+                $x = $cacheInst->has($this->mwCacheKey) ? "hit" : "miss";
+                if ($x == "hit") {
+                    $x = $cacheInst->get($this->mwCacheKey);
+                }
+                $x = htmlspecialchars(print_r($x, 1));
+                echo "\n<li>get req cache: ({$this->mwCacheKey})<pre>$x</pre>";
+            }
 
             if ($cacheInst->has($this->mwCacheKey)) {
-                $cache=$cacheInst->get($this->mwCacheKey);
+                $cache = $cacheInst->get($this->mwCacheKey);
 
-                $requirements=$cache["requirements"];
-                $jsRequirements=$cache["jsRequirements"];
+                $requirements = $cache["requirements"];
+                $jsRequirements = $cache["jsRequirements"];
             }
         }
 
@@ -952,19 +948,19 @@ $x=$cacheInst->get($this->mwCacheKey);
         return $content;
     }
 
-    var $mwCacheKey=null;
-    var $mwCacheMode=null;
+    var $mwCacheKey = null;
+    var $mwCacheMode = null;
 
     //mwuits:
     public function setMwCacheKey($cachekey)
     {
-        $this->mwCacheKey="req_".$cachekey;
+        $this->mwCacheKey = "req_" . $cachekey;
     }
 
     //mwuits:
     public function setMwCacheMode($mode)
     {
-        $this->mwCacheMode=$mode;
+        $this->mwCacheMode = $mode;
     }
 
     /**
@@ -1005,8 +1001,7 @@ $x=$cacheInst->get($this->mwCacheKey);
         $canWriteToBody = ($scriptTagPosition !== false)
             &&
             // Check that the script tag is not inside a html comment tag
-            !(
-                preg_match('/.*(?|(<!--)|(-->))/U', $content ?? '', $commentTags, 0, $scriptTagPosition ?? 0)
+            !(preg_match('/.*(?|(<!--)|(-->))/U', $content ?? '', $commentTags, 0, $scriptTagPosition ?? 0)
                 &&
                 $commentTags[1] == '-->'
             );
@@ -1179,8 +1174,8 @@ $x=$cacheInst->get($this->mwCacheKey);
      * Requirements::combine_files(
      *    'foobar.js',
      *    array(
-     *        'mysite/javascript/foo.js',
-     *        'mysite/javascript/bar.js',
+     *        'javascript/foo.js',
+     *        'javascript/bar.js',
      *    ),
      *    array(
      *        'async' => true,
@@ -1194,8 +1189,8 @@ $x=$cacheInst->get($this->mwCacheKey);
      * Requirements::combine_files(
      *    'foobar.css',
      *    array(
-     *        'mysite/javascript/foo.css',
-     *        'mysite/javascript/bar.css',
+     *        'javascript/foo.css',
+     *        'javascript/bar.css',
      *    ),
      *    array(
      *        'media' => 'print',
@@ -1379,38 +1374,38 @@ $x=$cacheInst->get($this->mwCacheKey);
             $included = false;
             switch ($type) {
                 case 'css': {
-                    $newCSS = []; // Assoc array of css file => spec
-                    foreach ($this->getAllCSS() as $css => $spec) {
-                        if (!in_array($css, $fileList)) {
-                            $newCSS[$css] = $spec;
-                        } elseif (!$included && $combinedURL) {
-                            $newCSS[$combinedURL] = [
-                                'media' => $options['media'] ?? null,
-                                'integrity' => $options['integrity'] ?? null,
-                                'crossorigin' => $options['crossorigin'] ?? null,
-                            ];
-                            $included = true;
+                        $newCSS = []; // Assoc array of css file => spec
+                        foreach ($this->getAllCSS() as $css => $spec) {
+                            if (!in_array($css, $fileList)) {
+                                $newCSS[$css] = $spec;
+                            } elseif (!$included && $combinedURL) {
+                                $newCSS[$combinedURL] = [
+                                    'media' => $options['media'] ?? null,
+                                    'integrity' => $options['integrity'] ?? null,
+                                    'crossorigin' => $options['crossorigin'] ?? null,
+                                ];
+                                $included = true;
+                            }
+                            // If already included, or otherwise blocked, then don't add into CSS
                         }
-                        // If already included, or otherwise blocked, then don't add into CSS
+                        $this->css = $newCSS;
+                        break;
                     }
-                    $this->css = $newCSS;
-                    break;
-                }
                 case 'js': {
-                    // Assoc array of file => attributes
-                    $newJS = [];
-                    foreach ($this->getAllJavascript() as $script => $attributes) {
-                        if (!in_array($script, $fileList)) {
-                            $newJS[$script] = $attributes;
-                        } elseif (!$included && $combinedURL) {
-                            $newJS[$combinedURL] = $options;
-                            $included = true;
+                        // Assoc array of file => attributes
+                        $newJS = [];
+                        foreach ($this->getAllJavascript() as $script => $attributes) {
+                            if (!in_array($script, $fileList)) {
+                                $newJS[$script] = $attributes;
+                            } elseif (!$included && $combinedURL) {
+                                $newJS[$combinedURL] = $options;
+                                $included = true;
+                            }
+                            // If already included, or otherwise blocked, then don't add into scripts
                         }
-                        // If already included, or otherwise blocked, then don't add into scripts
+                        $this->javascript = $newJS;
+                        break;
                     }
-                    $this->javascript = $newJS;
-                    break;
-                }
             }
         }
     }
@@ -1447,8 +1442,7 @@ $x=$cacheInst->get($this->mwCacheKey);
 Cannot minify files without a minification service defined.
 Set %s::minifyCombinedFiles to false, or inject a %s service on
 %s.properties.minifier
-MESSAGE
-                    ,
+MESSAGE,
                     __CLASS__,
                     Requirements_Minifier::class,
                     __CLASS__
@@ -1515,7 +1509,7 @@ MESSAGE
         $fileUrl = Injector::inst()->get(ResourceURLGenerator::class)->urlForResource($filePath);
         $fileUrlDir = dirname($fileUrl);
         $content = preg_replace_callback('#(url\([\n\r\s\'"]*)([^\s\)\?\'"]+)#i', function ($match) use ($fileUrlDir) {
-            [ $fullMatch, $prefix, $relativePath ] = $match;
+            [$fullMatch, $prefix, $relativePath] = $match;
             if ($relativePath[0] === '/' || false !== strpos($relativePath, '://')) {
                 return $fullMatch;
             }
@@ -1601,7 +1595,7 @@ MESSAGE
         } else {
             throw new InvalidArgumentException(
                 "The css file doesn't exist. Please check if the file $name.css exists in any context or search for "
-                . "themedCSS references calling this file in your templates."
+                    . "themedCSS references calling this file in your templates."
             );
         }
     }
@@ -1629,7 +1623,7 @@ MESSAGE
         } else {
             throw new InvalidArgumentException(
                 "The javascript file doesn't exist. Please check if the file $name.js exists in any "
-                . "context or search for themedJavascript references calling this file in your templates."
+                    . "context or search for themedJavascript references calling this file in your templates."
             );
         }
     }

@@ -83,15 +83,9 @@ class Controller extends RequestHandler implements TemplateGlobalProvider
      *
      * @var array
      */
-<<<<<<< HEAD
     private static $url_handlers = array(
         '$Action//$ID/$OtherID/$OtherID2' => 'handleAction',         //mwuits: added OtherID2
     );
-=======
-    private static $url_handlers = [
-        '$Action//$ID/$OtherID' => 'handleAction',
-    ];
->>>>>>> upstream/4.12
 
     /**
      * @var array
@@ -135,7 +129,7 @@ class Controller extends RequestHandler implements TemplateGlobalProvider
             $class = static::class;
             user_error(
                 "init() method on class '{$class}' doesn't call Controller::init()."
-                . "Make sure that you have parent::init() included.",
+                    . "Make sure that you have parent::init() included.",
                 E_USER_WARNING
             );
         }
@@ -243,7 +237,7 @@ class Controller extends RequestHandler implements TemplateGlobalProvider
                 $class = static::class;
                 Debug::message(
                     "Request handler returned HTTPResponse object to {$class} controller;"
-                    . "returning it without modification."
+                        . "returning it without modification."
                 );
             }
             $this->setResponse($response);
@@ -255,7 +249,7 @@ class Controller extends RequestHandler implements TemplateGlobalProvider
                     $responseClass = get_class($response);
                     Debug::message(
                         "Request handler {$responseClass} object to {$class} controller;"
-                        . "rendering with template returned by {$responseClass}::getViewer()"
+                            . "rendering with template returned by {$responseClass}::getViewer()"
                     );
                 }
                 $response = $response->getViewer($this->getAction())->process($response);

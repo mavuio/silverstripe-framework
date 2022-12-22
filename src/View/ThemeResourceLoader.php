@@ -235,14 +235,12 @@ class ThemeResourceLoader implements Flushable
             $themePaths = $this->getThemePaths($themes);
             foreach ($themePaths as $themePath) {
                 // Join path
-                $pathParts = [ $this->base, $themePath, 'templates', $head, $type, $tail ];
+                $pathParts = [$this->base, $themePath, 'templates', $head, $type, $tail];
                 try {
                     $path = Path::join($pathParts) . '.ss';
                     if (file_exists($path ?? '')) {
                         $this->getCache()->set($cacheKey, $path);
                         return $path;
-                    if($_GET['tpldebug']) {
-                        echo "\n✔ found";
                     }
                 } catch (InvalidArgumentException $e) {
                     // No-op
