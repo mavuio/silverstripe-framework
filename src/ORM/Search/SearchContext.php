@@ -5,6 +5,7 @@ namespace SilverStripe\ORM\Search;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\FormField;
 use SilverStripe\ORM\DataObject;
@@ -16,6 +17,8 @@ use SilverStripe\Forms\SelectField;
 use SilverStripe\Forms\CheckboxField;
 use InvalidArgumentException;
 use Exception;
+use SilverStripe\Core\Config\Config;
+use SilverStripe\ORM\DataQuery;
 
 /**
  * Manages searching of properties on one or more {@link DataObject}
@@ -73,7 +76,8 @@ class SearchContext
     protected $searchParams = [];
 
     /**
-     * The logical connective used to join WHERE clauses. Defaults to AND.
+     * The logical connective used to join WHERE clauses. Must be "AND".
+     * @deprecated 5.0
      * @var string
      */
     public $connective = 'AND';
@@ -96,7 +100,7 @@ class SearchContext
     {
         $this->modelClass = $modelClass;
         $this->fields = ($fields) ? $fields : new FieldList();
-        $this->filters = ($filters) ? $filters : array();
+        $this->filters = ($filters) ? $filters : [];
     }
 
     /**
@@ -107,8 +111,6 @@ class SearchContext
     public function getSearchFields()
     {
         return ($this->fields) ? $this->fields : singleton($this->modelClass)->scaffoldSearchFields();
-        // $this->fields is causing weirdness, so we ignore for now, using the default scaffolding
-        //return singleton($this->modelClass)->scaffoldSearchFields();
     }
 
     /**
@@ -119,7 +121,7 @@ class SearchContext
     {
         $classes = ClassInfo::dataClassesFor($this->modelClass);
         $baseTable = DataObject::getSchema()->baseDataTable($this->modelClass);
-        $fields = array("\"{$baseTable}\".*");
+        $fields = ["\"{$baseTable}\".*"];
         if ($this->modelClass != $classes[0]) {
             $fields[] = '"' . $classes[0] . '".*';
         }
@@ -145,7 +147,41 @@ class SearchContext
      */
     public function getQuery($searchParams, $sort = false, $limit = false, $existingQuery = null)
     {
-        /** DataList $query */
+        if ($this->connective != "AND") {
+            throw new Exception("SearchContext connective '$this->connective' not supported after ORM-rewrite.");
+        }
+        $this->setSearchParams($searchParams);
+        $query = $this->prepareQuery($sort, $limit, $existingQuery);
+        return $this->search($query);
+    }
+
+    /**
+     * Perform a search on the passed DataList based on $this->searchParams.
+     */
+    private function search(DataList $query): DataList
+    {
+        /** @var DataObject $modelObj */
+        $modelObj = Injector::inst()->create($this->modelClass);
+        $searchableFields = $modelObj->searchableFields();
+        foreach ($this->searchParams as $searchField => $searchPhrase) {
+            $searchField = str_replace('__', '.', $searchField ?? '');
+            if ($searchField !== '' && $searchField === $modelObj->getGeneralSearchFieldName()) {
+                $query = $this->generalFieldSearch($query, $searchableFields, $searchPhrase);
+            } else {
+                $query = $this->individualFieldSearch($query, $searchableFields, $searchField, $searchPhrase);
+            }
+        }
+        return $query;
+    }
+
+    /**
+     * Prepare the query to begin searching
+     *
+     * @param array|bool|string $sort Database column to sort on.
+     * @param array|bool|string $limit
+     */
+    private function prepareQuery($sort, $limit, ?DataList $existingQuery): DataList
+    {
         $query = null;
         if ($existingQuery) {
             if (!($existingQuery instanceof DataList)) {
@@ -169,26 +205,120 @@ class SearchContext
             $query = $query->limit($limit);
         }
 
-        /** @var DataList $query */
-        $query = $query->sort($sort);
-        $this->setSearchParams($searchParams);
+        return $query->sort($sort);
+    }
 
-        foreach ($this->searchParams as $key => $value) {
-            $key = str_replace('__', '.', $key);
-            if ($filter = $this->getFilter($key)) {
+    /**
+     * Takes a search phrase or search term and searches for it across all searchable fields.
+     *
+     * @param string|array $searchPhrase
+     */
+    private function generalSearchAcrossFields($searchPhrase, DataQuery $subGroup, array $searchableFields): void
+    {
+        $formFields = $this->getSearchFields();
+        foreach ($searchableFields as $field => $spec) {
+            $formFieldName = str_replace('.', '__', $field);
+            $filter = $this->getGeneralSearchFilter($this->modelClass, $field);
+            // Only apply filter if the field is allowed to be general and is backed by a form field.
+            // Otherwise we could be dealing with, for example, a DataObject which implements scaffoldSearchField
+            // to provide some unexpected field name, where the below would result in a DatabaseException.
+            if ((!isset($spec['general']) || $spec['general'])
+                && ($formFields->fieldByName($formFieldName) || $formFields->dataFieldByName($formFieldName))
+                && $filter !== null
+            ) {
                 $filter->setModel($this->modelClass);
-                $filter->setValue($value);
-                if (!$filter->isEmpty()) {
-                    $query = $query->alterDataQuery(array($filter, 'apply'));
-                }
+                $filter->setValue($searchPhrase);
+                $this->applyFilter($filter, $subGroup, $spec);
             }
         }
+    }
 
-        if ($this->connective != "AND") {
-            throw new Exception("SearchContext connective '$this->connective' not supported after ORM-rewrite.");
+    /**
+     * Use the global general search for searching across multiple fields.
+     *
+     * @param string|array $searchPhrase
+     */
+    private function generalFieldSearch(DataList $query, array $searchableFields, $searchPhrase): DataList
+    {
+        return $query->alterDataQuery(function (DataQuery $dataQuery) use ($searchableFields, $searchPhrase) {
+            // If necessary, split search phrase into terms, then search across fields.
+            if (Config::inst()->get($this->modelClass, 'general_search_split_terms')) {
+                if (is_array($searchPhrase)) {
+                    // Allow matches from ANY query in the array (i.e. return $obj where query1 matches OR query2 matches)
+                    $dataQuery = $dataQuery->disjunctiveGroup();
+                    foreach ($searchPhrase as $phrase) {
+                        // where ((field1 LIKE %lorem% OR field2 LIKE %lorem%) AND (field1 LIKE %ipsum% OR field2 LIKE %ipsum%))
+                        $generalSubGroup = $dataQuery->conjunctiveGroup();
+                        foreach (explode(' ', $phrase) as $searchTerm) {
+                            $this->generalSearchAcrossFields($searchTerm, $generalSubGroup->disjunctiveGroup(), $searchableFields);
+                        }
+                    }
+                } else {
+                    // where ((field1 LIKE %lorem% OR field2 LIKE %lorem%) AND (field1 LIKE %ipsum% OR field2 LIKE %ipsum%))
+                    $generalSubGroup = $dataQuery->conjunctiveGroup();
+                    foreach (explode(' ', $searchPhrase) as $searchTerm) {
+                        $this->generalSearchAcrossFields($searchTerm, $generalSubGroup->disjunctiveGroup(), $searchableFields);
+                    }
+                }
+            } else {
+                // where (field1 LIKE %lorem ipsum% OR field2 LIKE %lorem ipsum%)
+                $this->generalSearchAcrossFields($searchPhrase, $dataQuery->disjunctiveGroup(), $searchableFields);
+            }
+        });
+    }
+
+    /**
+     * Get the search filter for the given fieldname when searched from the general search field.
+     */
+    private function getGeneralSearchFilter(string $modelClass, string $fieldName): ?SearchFilter
+    {
+        if ($filterClass = Config::inst()->get($modelClass, 'general_search_field_filter')) {
+            return Injector::inst()->create($filterClass, $fieldName);
         }
+        return $this->getFilter($fieldName);
+    }
 
-        return $query;
+    /**
+     * Search against a single field
+     *
+     * @param string|array $searchPhrase
+     */
+    private function individualFieldSearch(DataList $query, array $searchableFields, string $searchField, $searchPhrase): DataList
+    {
+        $filter = $this->getFilter($searchField);
+        if (!$filter) {
+            return $query;
+        }
+        $filter->setModel($this->modelClass);
+        $filter->setValue($searchPhrase);
+        $searchableFieldSpec = $searchableFields[$searchField] ?? [];
+        return $query->alterDataQuery(function ($dataQuery) use ($filter, $searchableFieldSpec) {
+            $this->applyFilter($filter, $dataQuery, $searchableFieldSpec);
+        });
+    }
+
+    /**
+     * Apply a SearchFilter to a DataQuery for a given field's specifications
+     */
+    private function applyFilter(SearchFilter $filter, DataQuery $dataQuery, array $searchableFieldSpec): void
+    {
+        if ($filter->isEmpty()) {
+            return;
+        }
+        if (isset($searchableFieldSpec['match_any'])) {
+            $searchFields = $searchableFieldSpec['match_any'];
+            $filterClass = get_class($filter);
+            $value = $filter->getValue();
+            $modifiers = $filter->getModifiers();
+            $subGroup = $dataQuery->disjunctiveGroup();
+            foreach ($searchFields as $matchField) {
+                /** @var SearchFilter $filter */
+                $filter = Injector::inst()->create($filterClass, $matchField, $value, $modifiers);
+                $filter->apply($subGroup);
+            }
+        } else {
+            $filter->apply($dataQuery);
+        }
     }
 
     /**
@@ -204,7 +334,7 @@ class SearchContext
      */
     public function getResults($searchParams, $sort = false, $limit = false)
     {
-        $searchParams = array_filter((array)$searchParams, array($this, 'clearEmptySearchFields'));
+        $searchParams = array_filter((array)$searchParams, [$this, 'clearEmptySearchFields']);
 
         // getQuery actually returns a DataList
         return $this->getQuery($searchParams, $sort, $limit);

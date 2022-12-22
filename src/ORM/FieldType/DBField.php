@@ -37,7 +37,7 @@ use SilverStripe\View\ViewableData;
  * <code>
  * class Blob extends DBField {
  *  function requireField() {
- *      DB::requireField($this->tableName, $this->name, "blob");
+ *      DB::require_field($this->tableName, $this->name, "blob");
  *  }
  * }
  * </code>
@@ -107,7 +107,7 @@ abstract class DBField extends ViewableData implements DBIndexable
      */
     private static $index = false;
 
-    private static $casting = array(
+    private static $casting = [
         'ATT' => 'HTMLFragment',
         'CDATA' => 'HTMLFragment',
         'HTML' => 'HTMLFragment',
@@ -118,7 +118,7 @@ abstract class DBField extends ViewableData implements DBIndexable
         'URLATT' => 'HTMLFragment',
         'XML' => 'HTMLFragment',
         'ProcessedRAW' => 'HTMLFragment',
-    );
+    ];
 
     /**
      * @var $default mixed Default-value in the database.
@@ -165,7 +165,7 @@ abstract class DBField extends ViewableData implements DBIndexable
     {
         // Raise warning if inconsistent with DataObject::dbObject() behaviour
         // This will cause spec args to be shifted down by the number of provided $args
-        if ($args && strpos($spec, '(') !== false) {
+        if ($args && strpos($spec ?? '', '(') !== false) {
             trigger_error('Additional args provided in both $spec and $args', E_USER_WARNING);
         }
         // Ensure name is always first argument
@@ -232,7 +232,7 @@ abstract class DBField extends ViewableData implements DBIndexable
      *
      * @param mixed $value
      * @param DataObject|array $record An array or object that this field is part of
-     * @param bool $markChanged Indicate wether this field should be marked changed.
+     * @param bool $markChanged Indicate whether this field should be marked changed.
      *  Set to FALSE if you are initializing this field after construction, rather
      *  than setting a new value.
      * @return $this
@@ -303,7 +303,7 @@ abstract class DBField extends ViewableData implements DBIndexable
 
     public function getIndexType()
     {
-        if (array_key_exists('index', $this->options)) {
+        if (array_key_exists('index', $this->options ?? [])) {
             $type = $this->options['index'];
         } else {
             $type = static::config()->get('index');
@@ -335,18 +335,16 @@ abstract class DBField extends ViewableData implements DBIndexable
      * will be escaped automatically by the prepared query processor, so it
      * should not be escaped or quoted at all.
      *
-     * The field values could also be in paramaterised format, such as
-     * array('MAX(?,?)' => array(42, 69)), allowing the use of raw SQL values such as
-     * array('NOW()' => array()).
-     *
-     * @see SQLWriteExpression::addAssignments for syntax examples
-     *
-     * @param $value mixed The value to check
+     * @param mixed $value The value to check
      * @return mixed The raw value, or escaped parameterised details
      */
     public function prepValueForDB($value)
     {
-        if ($value === null || $value === "" || $value === false) {
+        if ($value === null ||
+            $value === "" ||
+            $value === false ||
+            ($this->scalarValueOnly() && !is_scalar($value))
+        ) {
             return null;
         } else {
             return $value;
@@ -436,7 +434,7 @@ abstract class DBField extends ViewableData implements DBIndexable
      */
     public function URLATT()
     {
-        return urlencode($this->RAW());
+        return urlencode($this->RAW() ?? '');
     }
 
     /**
@@ -446,7 +444,7 @@ abstract class DBField extends ViewableData implements DBIndexable
      */
     public function RAWURLATT()
     {
-        return rawurlencode($this->RAW());
+        return rawurlencode($this->RAW() ?? '');
     }
 
     /**
@@ -487,7 +485,7 @@ abstract class DBField extends ViewableData implements DBIndexable
      */
     public function JSON()
     {
-        return Convert::raw2json($this->RAW());
+        return json_encode($this->RAW());
     }
 
     /**
@@ -652,5 +650,16 @@ DBG;
             ];
         }
         return null;
+    }
+
+    /**
+     * Whether or not this DBField only accepts scalar values.
+     *
+     * Composite DBFields can override this method and return `false` so they can accept arrays of values.
+     * @return boolean
+     */
+    public function scalarValueOnly()
+    {
+        return true;
     }
 }

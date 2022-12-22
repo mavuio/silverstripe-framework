@@ -5,6 +5,7 @@ namespace SilverStripe\ORM\FieldType;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\ORM\ArrayLib;
+use SilverStripe\ORM\Connect\MySQLDatabase;
 use SilverStripe\ORM\DB;
 
 /**
@@ -20,7 +21,7 @@ class DBEnum extends DBString
      *
      * @var array
      */
-    protected $enum = array();
+    protected $enum = [];
 
     /**
      * Default value
@@ -32,6 +33,22 @@ class DBEnum extends DBString
     private static $default_search_filter_class = 'ExactMatchFilter';
 
     /**
+     * Internal cache for obsolete enum values. The top level keys are the table, each of which contains
+     * nested arrays with keys mapped to field names. The values of the lowest level array are the enum values
+     *
+     * @var array
+     */
+    protected static $enum_cache = [];
+
+    /**
+     * Clear all cached enum values.
+     */
+    public static function flushCache()
+    {
+        self::$enum_cache = [];
+    }
+
+    /**
      * Create a new Enum field, which is a value within a defined set, with an optional default.
      *
      * Example field specification strings:
@@ -40,7 +57,7 @@ class DBEnum extends DBString
      *  "MyField" => "Enum('Val1, Val2, Val3')" // First item 'Val1' is default implicitly
      *  "MyField" => "Enum('Val1, Val2, Val3', 'Val2')" // 'Val2' is default explicitly
      *  "MyField" => "Enum('Val1, Val2, Val3', null)" // Force empty (no) default
-     *  "MyField" => "Enum(array('Val1', 'Val2', 'Val3'), 'Val1')" // Supports array notation as well
+     *  "MyField" => "Enum(['Val1', 'Val2', 'Val3'], 'Val1')" // Supports array notation as well
      * </code>
      *
      * @param string $name
@@ -58,15 +75,14 @@ class DBEnum extends DBString
 
             // If there's a default, then use this
             if ($default && !is_int($default)) {
-                if (in_array($default, $enum)) {
+                if (in_array($default, $enum ?? [])) {
                     $this->setDefault($default);
                 } else {
-                    user_error(
-                        "Enum::__construct() The default value '$default' does not match any item in the enumeration",
-                        E_USER_ERROR
+                    throw new \InvalidArgumentException(
+                        "Enum::__construct() The default value '$default' does not match any item in the enumeration"
                     );
                 }
-            } elseif (is_int($default) && $default < count($enum)) {
+            } elseif (is_int($default) && $default < count($enum ?? [])) {
                 // Set to specified index if given
                 $this->setDefault($enum[$default]);
             } else {
@@ -83,23 +99,23 @@ class DBEnum extends DBString
      */
     public function requireField()
     {
-        $charset = Config::inst()->get('SilverStripe\ORM\Connect\MySQLDatabase', 'charset');
-        $collation = Config::inst()->get('SilverStripe\ORM\Connect\MySQLDatabase', 'collation');
+        $charset = Config::inst()->get(MySQLDatabase::class, 'charset');
+        $collation = Config::inst()->get(MySQLDatabase::class, 'collation');
 
-        $parts = array(
+        $parts = [
             'datatype' => 'enum',
-            'enums' => $this->getEnum(),
+            'enums' => $this->getEnumObsolete(),
             'character set' => $charset,
             'collate' => $collation,
             'default' => $this->getDefault(),
             'table' => $this->getTable(),
             'arrayValue' => $this->arrayValue
-        );
+        ];
 
-        $values = array(
+        $values = [
             'type' => 'enum',
             'parts' => $parts
-        );
+        ];
 
         DB::require_field($this->getTable(), $this->getName(), $values);
     }
@@ -114,7 +130,7 @@ class DBEnum extends DBString
      * @param string $emptyString
      * @return DropdownField
      */
-    public function formField($title = null, $name = null, $hasEmpty = false, $value = "", $emptyString = null)
+    public function formField($title = null, $name = null, $hasEmpty = false, $value = '', $emptyString = null)
     {
 
         if (!$title) {
@@ -124,7 +140,7 @@ class DBEnum extends DBString
             $name = $this->getName();
         }
 
-        $field = new DropdownField($name, $title, $this->enumValues(false), $value);
+        $field = DropdownField::create($name, $title, $this->enumValues(false), $value);
         if ($hasEmpty) {
             $field->setEmptyString($emptyString);
         }
@@ -138,28 +154,27 @@ class DBEnum extends DBString
     }
 
     /**
-     * @param string
-     *
+     * @param string $title
      * @return DropdownField
      */
     public function scaffoldSearchField($title = null)
     {
-        $anyText = _t('SilverStripe\\ORM\\FieldType\\DBEnum.ANY', 'Any');
-        return $this->formField($title, null, true, $anyText, "($anyText)");
+        $anyText = _t(__CLASS__ . '.ANY', 'Any');
+        return $this->formField($title, null, true, '', "($anyText)");
     }
 
     /**
      * Returns the values of this enum as an array, suitable for insertion into
      * a {@link DropdownField}
      *
-     * @param boolean
+     * @param bool $hasEmpty
      *
      * @return array
      */
     public function enumValues($hasEmpty = false)
     {
         return ($hasEmpty)
-            ? array_merge(array('' => ''), ArrayLib::valuekey($this->getEnum()))
+            ? array_merge(['' => ''], ArrayLib::valuekey($this->getEnum()))
             : ArrayLib::valuekey($this->getEnum());
     }
 
@@ -171,6 +186,48 @@ class DBEnum extends DBString
     public function getEnum()
     {
         return $this->enum;
+    }
+
+
+    /**
+     * Get the list of enum values, including obsolete values still present in the database
+     *
+     * If table or name are not set, or if it is not a valid field on the given table,
+     * then only known enum values are returned.
+     *
+     * Values cached in this method can be cleared via `DBEnum::flushCache();`
+     *
+     * @return array
+     */
+    public function getEnumObsolete()
+    {
+        // Without a table or field specified, we can only retrieve known enum values
+        $table = $this->getTable();
+        $name = $this->getName();
+        if (empty($table) || empty($name)) {
+            return $this->getEnum();
+        }
+
+        // Ensure the table level cache exists
+        if (empty(self::$enum_cache[$table])) {
+            self::$enum_cache[$table] = [];
+        }
+
+        // Check existing cache
+        if (!empty(self::$enum_cache[$table][$name])) {
+            return self::$enum_cache[$table][$name];
+        }
+
+        // Get all enum values
+        $enumValues = $this->getEnum();
+        if (DB::get_schema()->hasField($table, $name)) {
+            $existing = DB::query("SELECT DISTINCT \"{$name}\" FROM \"{$table}\"")->column();
+            $enumValues = array_unique(array_merge($enumValues, $existing));
+        }
+
+        // Cache and return
+        self::$enum_cache[$table][$name] = $enumValues;
+        return $enumValues;
     }
 
     /**
@@ -185,10 +242,10 @@ class DBEnum extends DBString
             $enum = preg_split(
                 '/\s*,\s*/',
                 // trim commas only if they are on the right with a newline following it
-                ltrim(preg_replace('/,\s*\n\s*$/', '', $enum))
+                ltrim(preg_replace('/,\s*\n\s*$/', '', $enum ?? '') ?? '')
             );
         }
-        $this->enum = array_values($enum);
+        $this->enum = array_values($enum ?? []);
         return $this;
     }
 

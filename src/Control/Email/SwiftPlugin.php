@@ -2,8 +2,18 @@
 
 namespace SilverStripe\Control\Email;
 
+use SilverStripe\Dev\Deprecation;
+
+/**
+ * @deprecated 4.12.0 Will be replaced with symfony/mailer
+ */
 class SwiftPlugin implements \Swift_Events_SendListener
 {
+    public function __construct()
+    {
+        Deprecation::notice('4.12.0', 'Will be replaced with symfony/mailer', Deprecation::SCOPE_CLASS);
+    }
+
     /**
      * Before sending a message make sure all our overrides are taken into account
      *
@@ -40,7 +50,7 @@ class SwiftPlugin implements \Swift_Events_SendListener
     }
 
     /**
-     * @param \Swift_Mime_Message $message
+     * @param \Swift_Message $message
      * @param array|string $to
      */
     protected function setTo($message, $to)
@@ -62,7 +72,7 @@ class SwiftPlugin implements \Swift_Events_SendListener
     }
 
     /**
-     * @param \Swift_Mime_Message $message
+     * @param \Swift_Message $message
      * @param array|string $from
      */
     protected function setFrom($message, $from)

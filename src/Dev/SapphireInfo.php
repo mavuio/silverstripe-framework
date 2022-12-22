@@ -2,6 +2,7 @@
 
 namespace SilverStripe\Dev;
 
+use SilverStripe\Dev\Deprecation;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\Director;
 use SilverStripe\Security\Permission;
@@ -9,14 +10,20 @@ use SilverStripe\Security\Security;
 
 /**
  * Returns information about the current site instance.
+ * @deprecated 4.4.7 Will be removed without equivalent functionality
  */
 class SapphireInfo extends Controller
 {
-    private static $allowed_actions = array(
+    private static $allowed_actions = [
         'baseurl',
         'version',
         'environmenttype',
-    );
+    ];
+
+    public function __construct()
+    {
+        Deprecation::notice('4.4.7', 'Will be removed without equivalent functionality', Deprecation::SCOPE_CLASS);
+    }
 
     protected function init()
     {

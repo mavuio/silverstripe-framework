@@ -15,7 +15,7 @@ use SilverStripe\ORM\DataObject;
  * complies with your privacy standards. We're logging
  * username and IP.
  *
- * @property string $Email Email address used for login attempt. @deprecated 3.0...5.0
+ * @property string $Email Email address used for login attempt. @deprecated 3.0.0:5.0.0
  * @property string $EmailHashed sha1 hashed Email address used for login attempt
  * @property string $Status Status of the login attempt, either 'Success' or 'Failure'
  * @property string $IP IP address of user attempting to login
@@ -35,16 +35,20 @@ class LoginAttempt extends DataObject
      */
     const FAILURE = 'Failure';
 
-    private static $db = array(
+    private static $db = [
         'Email' => 'Varchar(255)', // Remove in 5.0
         'EmailHashed' => 'Varchar(255)',
         'Status' => "Enum('Success,Failure')",
         'IP' => 'Varchar(255)',
-    );
+    ];
 
-    private static $has_one = array(
+    private static $has_one = [
         'Member' => Member::class, // only linked if the member actually exists
-    );
+    ];
+
+    private static $indexes = [
+        "EmailHashed" => true
+    ];
 
     private static $table_name = "LoginAttempt";
 
@@ -56,10 +60,10 @@ class LoginAttempt extends DataObject
     public function fieldLabels($includerelations = true)
     {
         $labels = parent::fieldLabels($includerelations);
-        $labels['Email'] = _t(__CLASS__.'.Email', 'Email Address');
-        $labels['EmailHashed'] = _t(__CLASS__.'.EmailHashed', 'Email Address (hashed)');
-        $labels['Status'] = _t(__CLASS__.'.Status', 'Status');
-        $labels['IP'] = _t(__CLASS__.'.IP', 'IP Address');
+        $labels['Email'] = _t(__CLASS__ . '.Email', 'Email Address');
+        $labels['EmailHashed'] = _t(__CLASS__ . '.EmailHashed', 'Email Address (hashed)');
+        $labels['Status'] = _t(__CLASS__ . '.Status', 'Status');
+        $labels['IP'] = _t(__CLASS__ . '.IP', 'IP Address');
 
         return $labels;
     }
@@ -73,7 +77,7 @@ class LoginAttempt extends DataObject
     public function setEmail($email)
     {
         // Store hashed email only
-        $this->EmailHashed = sha1($email);
+        $this->EmailHashed = sha1($email ?? '');
         return $this;
     }
 
@@ -85,9 +89,8 @@ class LoginAttempt extends DataObject
      */
     public static function getByEmail($email)
     {
-        return static::get()->filterAny(array(
-            'Email' => $email,
-            'EmailHashed' => sha1($email),
-        ));
+        return static::get()->filterAny([
+            'EmailHashed' => sha1($email ?? ''),
+        ]);
     }
 }

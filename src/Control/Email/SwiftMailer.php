@@ -2,6 +2,7 @@
 
 namespace SilverStripe\Control\Email;
 
+use SilverStripe\Dev\Deprecation;
 use SilverStripe\Core\Config\Configurable;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Core\Injector\Injector;
@@ -9,6 +10,8 @@ use Swift_Mailer;
 use Swift_Message;
 
 /**
+ * @deprecated 4.12.0 Will be replaced with symfony/mailer
+ *
  * Mailer objects are responsible for actually sending emails.
  * The default Mailer class will use PHP's mail() function.
  */
@@ -22,9 +25,9 @@ class SwiftMailer implements Mailer
      * @var array
      * @config
      */
-    private static $swift_plugins = array(
+    private static $swift_plugins = [
         SwiftPlugin::class,
-    );
+    ];
 
     /**
      * @var Swift_Mailer
@@ -35,10 +38,15 @@ class SwiftMailer implements Mailer
      * @param Email $message
      * @return bool Whether the sending was "successful" or not
      */
+    public function __construct()
+    {
+        Deprecation::notice('4.12.0', 'Will be replaced with symfony/mailer', Deprecation::SCOPE_CLASS);
+    }
+
     public function send($message)
     {
         $swiftMessage = $message->getSwiftMessage();
-        $failedRecipients = array();
+        $failedRecipients = [];
         $result = $this->sendSwift($swiftMessage, $failedRecipients);
         $message->setFailedRecipients($failedRecipients);
 

@@ -15,11 +15,11 @@ class DecimalTest extends SapphireTest
      */
     protected $testDataObject;
 
-    protected static $extra_dataobjects = array(
+    protected static $extra_dataobjects = [
         DecimalTest\TestObject::class
-    );
+    ];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->testDataObject = $this->objFromFixture(DecimalTest\TestObject::class, 'test-dataobject');
@@ -58,6 +58,35 @@ class DecimalTest extends SapphireTest
             $this->testDataObject->MyDecimal4,
             4,
             'Default value for Decimal type is set to 4'
+        );
+    }
+
+    public function testLongValueStoredCorrectly()
+    {
+        $this->assertEquals(
+            $this->testDataObject->MyDecimal5,
+            1.0,
+            'Long default long decimal value is rounded correctly'
+        );
+
+        $this->assertEqualsWithDelta(
+            $this->testDataObject->MyDecimal5,
+            0.99999999999999999999,
+            PHP_FLOAT_EPSILON,
+            'Long default long decimal value is correct within float epsilon'
+        );
+
+        $this->assertEquals(
+            $this->testDataObject->MyDecimal6,
+            8.0,
+            'Long decimal value with a default value is rounded correctly'
+        );
+
+        $this->assertEqualsWithDelta(
+            $this->testDataObject->MyDecimal6,
+            7.99999999999999999999,
+            PHP_FLOAT_EPSILON,
+            'Long decimal value is within epsilon if longer than allowed number of float digits'
         );
     }
 

@@ -17,10 +17,10 @@ trait Injectable
      * This can be called in one of two ways - either calling via the class directly,
      * or calling on Object and passing the class name as the first parameter. The following
      * are equivalent:
-     *    $list = DataList::create('SiteTree');
+     *    $list = DataList::create(SiteTree::class);
      *    $list = SiteTree::get();
      *
-     * @param array $args
+     * @param mixed $args
      * @return static
      */
     public static function create(...$args)

@@ -15,10 +15,20 @@ class ClassManifestVisitor extends NodeVisitorAbstract
 
     private $interfaces = [];
 
+    private bool $includeEnums;
+
+    private $enums = [];
+
+    public function __construct()
+    {
+        $this->includeEnums = version_compare(phpversion(), '8.1.0', '>');
+    }
+
     public function resetState()
     {
         $this->classes = [];
         $this->traits = [];
+        $this->enums = [];
         $this->interfaces = [];
     }
 
@@ -34,7 +44,7 @@ class ClassManifestVisitor extends NodeVisitorAbstract
             $interfaces = [];
 
             if ($node->extends) {
-                $extends = array((string)$node->extends);
+                $extends = [(string)$node->extends];
             }
 
             if ($node->implements) {
@@ -48,9 +58,11 @@ class ClassManifestVisitor extends NodeVisitorAbstract
                 'interfaces' => $interfaces,
             ];
         } elseif ($node instanceof Node\Stmt\Trait_) {
-            $this->traits[(string)$node->namespacedName] = array();
+            $this->traits[(string)$node->namespacedName] = [];
+        } elseif ($this->includeEnums && $node instanceof Node\Stmt\Enum_) {
+            $this->enums[(string)$node->namespacedName] = [];
         } elseif ($node instanceof Node\Stmt\Interface_) {
-            $extends = array();
+            $extends = [];
             foreach ($node->extends as $ancestor) {
                 $extends[] = (string)$ancestor;
             }
@@ -72,6 +84,11 @@ class ClassManifestVisitor extends NodeVisitorAbstract
     public function getTraits()
     {
         return $this->traits;
+    }
+
+    public function getEnums()
+    {
+        return $this->enums;
     }
 
     public function getInterfaces()

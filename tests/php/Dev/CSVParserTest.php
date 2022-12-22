@@ -15,7 +15,7 @@ class CSVParserTest extends SapphireTest
      */
     protected $csvPath = null;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->csvPath = __DIR__ . '/CsvBulkLoaderTest/csv/';
@@ -26,12 +26,12 @@ class CSVParserTest extends SapphireTest
         /* By default, a CSV file will be interpreted as having headers */
         $csv = new CSVParser($this->csvPath . 'PlayersWithHeader.csv');
 
-        $firstNames = $birthdays = $biographies = $registered = array();
+        $firstNames = $birthdays = $biographies = $registered = [];
         foreach ($csv as $record) {
             /* Each row in the CSV file will be keyed with the header row */
             $this->assertEquals(
                 ['FirstName','Biography','Birthday','IsRegistered'],
-                array_keys($record)
+                array_keys($record ?? [])
             );
             $firstNames[] = $record['FirstName'];
             $biographies[] = $record['Biography'];
@@ -80,11 +80,11 @@ class CSVParserTest extends SapphireTest
             'bIoGrApHy' => '__BG',
         ]);
 
-        $firstNames = $birthdays = $biographies = $registered = array();
+        $firstNames = $birthdays = $biographies = $registered = [];
         foreach ($csv as $record) {
             /* Each row in the CSV file will be keyed with the renamed columns.  Any unmapped column names will be
             * left as-is. */
-            $this->assertEquals(['__fn','__BG','Birthday','IsRegistered'], array_keys($record));
+            $this->assertEquals(['__fn','__BG','Birthday','IsRegistered'], array_keys($record ?? []));
             $firstNames[] = $record['__fn'];
             $biographies[] = $record['__BG'];
             $birthdays[] = $record['Birthday'];
@@ -111,20 +111,20 @@ class CSVParserTest extends SapphireTest
             "1982-06-30",
             "2000-04-30",
         ], $birthdays);
-        $this->assertEquals(array('1', '0', '1', '1', '0'), $registered);
+        $this->assertEquals(['1', '0', '1', '1', '0'], $registered);
     }
 
     public function testParsingWithExplicitHeaderRow()
     {
         /* If your CSV file doesn't have a header row */
-        $csv = new CSVParser($this->csvPath .'PlayersWithHeader.csv');
+        $csv = new CSVParser($this->csvPath . 'PlayersWithHeader.csv');
 
-        $csv->provideHeaderRow(array('__fn','__bio','__bd','__reg'));
+        $csv->provideHeaderRow(['__fn','__bio','__bd','__reg']);
 
-        $firstNames = $birthdays = $biographies = $registered = array();
+        $firstNames = $birthdays = $biographies = $registered = [];
         foreach ($csv as $record) {
             /* Each row in the CSV file will be keyed with the header row that you gave */
-            $this->assertEquals(array('__fn','__bio','__bd','__reg'), array_keys($record));
+            $this->assertEquals(['__fn','__bio','__bd','__reg'], array_keys($record ?? []));
             $firstNames[] = $record['__fn'];
             $biographies[] = $record['__bio'];
             $birthdays[] = $record['__bd'];

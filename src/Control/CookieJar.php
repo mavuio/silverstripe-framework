@@ -2,6 +2,7 @@
 
 namespace SilverStripe\Control;
 
+use SilverStripe\Dev\Deprecation;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use LogicException;
 
@@ -18,14 +19,13 @@ use LogicException;
  */
 class CookieJar implements Cookie_Backend
 {
-
     /**
      * Hold the cookies that were existing at time of instantiation (ie: The ones
      * sent to PHP by the browser)
      *
      * @var array Existing cookies sent by the browser
      */
-    protected $existing = array();
+    protected $existing = [];
 
     /**
      * Hold the current cookies (ie: a mix of those that were sent to us and we
@@ -33,7 +33,7 @@ class CookieJar implements Cookie_Backend
      *
      * @var array The state of cookies once we've sent the response
      */
-    protected $current = array();
+    protected $current = [];
 
     /**
      * Hold any NEW cookies that were set by the application and will be sent
@@ -41,7 +41,7 @@ class CookieJar implements Cookie_Backend
      *
      * @var array New cookies set by the application
      */
-    protected $new = array();
+    protected $new = [];
 
     /**
      * When creating the backend we want to store the existing cookies in our
@@ -51,10 +51,10 @@ class CookieJar implements Cookie_Backend
      * @param array $cookies The existing cookies to load into the cookie jar.
      * Omit this to default to $_COOKIE
      */
-    public function __construct($cookies = array())
+    public function __construct($cookies = [])
     {
         $this->current = $this->existing = func_num_args()
-            ? ($cookies ?: array()) // Convert empty values to blank arrays
+            ? ($cookies ?: []) // Convert empty values to blank arrays
             : $_COOKIE;
     }
 
@@ -63,7 +63,7 @@ class CookieJar implements Cookie_Backend
      *
      * @param string $name The name of the cookie
      * @param string $value The value for the cookie to hold
-     * @param int $expiry The number of days until expiry; 0 indicates a cookie valid for the current session
+     * @param float $expiry The number of days until expiry; 0 indicates a cookie valid for the current session
      * @param string $path The path to save the cookie on (falls back to site base)
      * @param string $domain The domain to make the cookie available on
      * @param boolean $secure Can the cookie only be sent over SSL?
@@ -113,7 +113,7 @@ class CookieJar implements Cookie_Backend
         }
 
         //Normalise cookie names by replacing '.' with '_'
-        $safeName = str_replace('.', '_', $name);
+        $safeName = str_replace('.', '_', $name ?? '');
         if (isset($cookies[$safeName])) {
             return $cookies[$safeName];
         }
@@ -152,7 +152,7 @@ class CookieJar implements Cookie_Backend
      *
      * @param string $name The name of the cookie
      * @param string|array $value The value for the cookie to hold
-     * @param int $expiry The number of days until expiry
+     * @param int $expiry A Unix timestamp indicating when the cookie expires; 0 means it will expire at the end of the session
      * @param string $path The path to save the cookie on (falls back to site base)
      * @param string $domain The domain to make the cookie available on
      * @param boolean $secure Can the cookie only be sent over SSL?
@@ -168,9 +168,18 @@ class CookieJar implements Cookie_Backend
         $secure = false,
         $httpOnly = true
     ) {
+        $sameSite = $this->getSameSite($name);
+        Cookie::validateSameSite($sameSite);
         // if headers aren't sent, we can set the cookie
         if (!headers_sent($file, $line)) {
-            return setcookie($name, $value, $expiry, $path, $domain, $secure, $httpOnly);
+            return setcookie($name ?? '', $value ?? '', [
+                'expires' => $expiry ?? 0,
+                'path' => $path ?? '',
+                'domain' => $domain ?? '',
+                'secure' => $this->cookieIsSecure($sameSite, (bool) $secure),
+                'httponly' => $httpOnly ?? false,
+                'samesite' => $sameSite,
+            ]);
         }
 
         if (Cookie::config()->uninherited('report_errors')) {
@@ -179,5 +188,27 @@ class CookieJar implements Cookie_Backend
             );
         }
         return false;
+    }
+
+    /**
+     * Cookies must be secure if samesite is "None"
+     */
+    private function cookieIsSecure(string $sameSite, bool $secure): bool
+    {
+        return $sameSite === 'None' ? true : $secure;
+    }
+
+    /**
+     * Get the correct samesite value - Session cookies use a different configuration variable.
+     *
+     * @deprecated 4.12.0 The relevant methods will include a `$sameSite` parameter instead.
+     */
+    private function getSameSite(string $name): string
+    {
+        Deprecation::notice('4.12.0', 'The relevant methods will include a `$sameSite` parameter instead.');
+        if ($name === session_name()) {
+            return Session::config()->get('cookie_samesite');
+        }
+        return Cookie::config()->get('default_samesite');
     }
 }

@@ -11,6 +11,7 @@ use SilverStripe\ORM\DataObject;
 use SilverStripe\View\ArrayData;
 use SilverStripe\View\SSViewer;
 use LogicException;
+use SilverStripe\Core\Injector\Injector;
 
 /**
  * GridFieldSortableHeader adds column headers to a {@link GridField} that can
@@ -18,7 +19,7 @@ use LogicException;
  *
  * @see GridField
  */
-class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataManipulator, GridField_ActionProvider
+class GridFieldSortableHeader extends AbstractGridFieldComponent implements GridField_HTMLProvider, GridField_DataManipulator, GridField_ActionProvider, GridField_StateProvider
 {
 
     /**
@@ -31,7 +32,7 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
     /**
      * @var array
      */
-    public $fieldSorting = array();
+    public $fieldSorting = [];
 
     /**
      * Determine what happens when this component is used with a list that isn't {@link SS_Filterable}.
@@ -83,7 +84,7 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
     }
 
     /**
-     * Specify sortings with fieldname as the key, and actual fieldname to sort as value.
+     * Specify sorting with fieldname as the key, and actual fieldname to sort as value.
      * Example: array("MyCustomTitle"=>"Title", "MyCustomBooleanField" => "ActualBooleanField")
      *
      * @param array $sorting
@@ -116,10 +117,10 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
             return null;
         }
         /** @var Sortable $list */
-        $forTemplate = new ArrayData(array());
+        $forTemplate = new ArrayData([]);
         $forTemplate->Fields = new ArrayList;
 
-        $state = $gridField->State->GridFieldSortableHeader;
+        $state = $this->getState($gridField);
         $columns = $gridField->getColumns();
         $currentColumn = 0;
 
@@ -127,7 +128,7 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
         foreach ($columns as $columnField) {
             $currentColumn++;
             $metadata = $gridField->getColumnMetadata($columnField);
-            $fieldName = str_replace('.', '-', $columnField);
+            $fieldName = str_replace('.', '-', $columnField ?? '');
             $title = $metadata['title'];
 
             if (isset($this->fieldSorting[$columnField]) && $this->fieldSorting[$columnField]) {
@@ -136,17 +137,17 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
 
             $allowSort = ($title && $list->canSortBy($columnField));
 
-            if (!$allowSort && strpos($columnField, '.') !== false) {
+            if (!$allowSort && strpos($columnField ?? '', '.') !== false) {
                 // we have a relation column with dot notation
                 // @see DataObject::relField for approximation
-                $parts = explode('.', $columnField);
+                $parts = explode('.', $columnField ?? '');
                 $tmpItem = singleton($list->dataClass());
-                for ($idx = 0; $idx < sizeof($parts); $idx++) {
+                for ($idx = 0; $idx < sizeof($parts ?? []); $idx++) {
                     $methodName = $parts[$idx];
                     if ($tmpItem instanceof SS_List) {
                         // It's impossible to sort on a HasManyList/ManyManyList
                         break;
-                    } elseif (method_exists($tmpItem, 'hasMethod') && $tmpItem->hasMethod($methodName)) {
+                    } elseif ($tmpItem && method_exists($tmpItem, 'hasMethod') && $tmpItem->hasMethod($methodName)) {
                         // The part is a relation name, so get the object/list from it
                         $tmpItem = $tmpItem->$methodName();
                     } elseif ($tmpItem instanceof DataObject
@@ -154,7 +155,7 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
                     ) {
                         // Else, if we've found a database field at the end of the chain, we can sort on it.
                         // If a method is applied further to this field (E.g. 'Cost.Currency') then don't try to sort.
-                        $allowSort = $idx === sizeof($parts) - 1;
+                        $allowSort = $idx === sizeof($parts ?? []) - 1;
                         break;
                     } else {
                         // If neither method nor field, then unable to sort
@@ -171,10 +172,10 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
 
                 $field = GridField_FormAction::create(
                     $gridField,
-                    'SetOrder'.$fieldName,
+                    'SetOrder' . $fieldName,
                     $title,
                     "sort$dir",
-                    array('SortColumn' => $columnField)
+                    ['SortColumn' => $columnField]
                 )->addExtraClass('grid-field__sort');
 
                 if ($state->SortColumn(null) == $columnField) {
@@ -187,16 +188,21 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
                     }
                 }
             } else {
-                if ($currentColumn == count($columns)) {
+                if ($currentColumn == count($columns ?? [])) {
                     $filter = $gridField->getConfig()->getComponentByType(GridFieldFilterHeader::class);
 
-                    if ($filter && $filter->canFilterAnyColumns($gridField)) {
+                    if ($filter && $filter->useLegacyFilterHeader && $filter->canFilterAnyColumns($gridField)) {
                         $field = new LiteralField(
                             $fieldName,
-                            '<button type="button" name="showFilter" title="Open search and filter" class="btn btn-secondary font-icon-search btn--no-text btn--icon-large grid-field__filter-open"></button>'
+                            sprintf(
+                                '<button type="button" name="showFilter" aria-label="%s" title="%s"' .
+                                ' class="btn btn-secondary font-icon-search btn--no-text btn--icon-large grid-field__filter-open"></button>',
+                                _t('SilverStripe\\Forms\\GridField\\GridField.OpenFilter', "Open search and filter"),
+                                _t('SilverStripe\\Forms\\GridField\\GridField.OpenFilter', "Open search and filter")
+                            )
                         );
                     } else {
-                        $field = new LiteralField($fieldName, '<span class="non-sortable"></span>');
+                        $field = new LiteralField($fieldName, '<span class="non-sortable">' . $title . '</span>');
                     }
                 } else {
                     $field = new LiteralField($fieldName, '<span class="non-sortable">' . $title . '</span>');
@@ -206,9 +212,9 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
         }
 
         $template = SSViewer::get_templates_by_class($this, '_Row', __CLASS__);
-        return array(
+        return [
             'header' => $forTemplate->renderWith($template),
-        );
+        ];
     }
 
     /**
@@ -222,7 +228,7 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
             return [];
         }
 
-        return array('sortasc', 'sortdesc');
+        return ['sortasc', 'sortdesc'];
     }
 
     public function handleAction(GridField $gridField, $actionName, $arguments, $data)
@@ -231,7 +237,7 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
             return;
         }
 
-        $state = $gridField->State->GridFieldSortableHeader;
+        $state = $this->getState($gridField);
         switch ($actionName) {
             case 'sortasc':
                 $state->SortColumn = $arguments['SortColumn'];
@@ -261,11 +267,36 @@ class GridFieldSortableHeader implements GridField_HTMLProvider, GridField_DataM
         }
 
         /** @var Sortable $dataList */
-        $state = $gridField->State->GridFieldSortableHeader;
+        $state = $this->getState($gridField);
         if ($state->SortColumn == "") {
             return $dataList;
         }
 
+        // Prevent SQL Injection by validating that SortColumn exists
+        /** @var GridFieldDataColumns $columns */
+        $columns = $gridField->getConfig()->getComponentByType(GridFieldDataColumns::class);
+        $fields = $columns->getDisplayFields($gridField);
+        if (!array_key_exists($state->SortColumn, $fields) &&
+            !in_array($state->SortColumn, $this->getFieldSorting())
+        ) {
+            throw new LogicException('Invalid SortColumn: ' . $state->SortColumn);
+        }
+
         return $dataList->sort($state->SortColumn, $state->SortDirection('asc'));
+    }
+
+    /**
+     * Extract state data from the parent gridfield
+     * @param GridField $gridField
+     * @return GridState_Data
+     */
+    private function getState(GridField $gridField): GridState_Data
+    {
+        return $gridField->State->GridFieldSortableHeader;
+    }
+
+    public function initDefaultState(GridState_Data $data): void
+    {
+        $data->GridFieldSortableHeader->initDefaults(['SortColumn' => null, 'SortDirection' => 'asc']);
     }
 }

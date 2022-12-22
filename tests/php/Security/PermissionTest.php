@@ -3,6 +3,7 @@
 namespace SilverStripe\Security\Tests;
 
 use SilverStripe\Security\Permission;
+use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\PermissionCheckboxSetField;
 use SilverStripe\Core\Config\Config;
@@ -39,22 +40,22 @@ class PermissionTest extends SapphireTest
         $members = Member::get()->byIDs($this->allFixtureIDs(Member::class));
         foreach ($members as $member) {
             $this->assertTrue(Permission::checkMember($member, 'CMS_ACCESS'));
-            $this->assertTrue(Permission::checkMember($member, array('CMS_ACCESS', 'CMS_ACCESS_Security')));
-            $this->assertTrue(Permission::checkMember($member, array('CMS_ACCESS_Security', 'CMS_ACCESS')));
+            $this->assertTrue(Permission::checkMember($member, ['CMS_ACCESS', 'CMS_ACCESS_Security']));
+            $this->assertTrue(Permission::checkMember($member, ['CMS_ACCESS_Security', 'CMS_ACCESS']));
         }
 
         $member = new Member();
         $member->update(
-            array(
+            [
             'FirstName' => 'No CMS',
             'Surname' => 'Access',
             'Email' => 'no-access@example.com',
-            )
+            ]
         );
         $member->write();
         $this->assertFalse(Permission::checkMember($member, 'CMS_ACCESS'));
-        $this->assertFalse(Permission::checkMember($member, array('CMS_ACCESS', 'CMS_ACCESS_Security')));
-        $this->assertFalse(Permission::checkMember($member, array('CMS_ACCESS_Security', 'CMS_ACCESS')));
+        $this->assertFalse(Permission::checkMember($member, ['CMS_ACCESS', 'CMS_ACCESS_Security']));
+        $this->assertFalse(Permission::checkMember($member, ['CMS_ACCESS_Security', 'CMS_ACCESS']));
     }
 
     public function testLeftAndMainAccessAll()
@@ -89,18 +90,18 @@ class PermissionTest extends SapphireTest
     {
         $member = $this->objFromFixture(Member::class, 'access');
         $permissions = Permission::permissions_for_member($member->ID);
-        $this->assertEquals(4, count($permissions));
-        $this->assertTrue(in_array('CMS_ACCESS_MyAdmin', $permissions));
-        $this->assertTrue(in_array('CMS_ACCESS_AssetAdmin', $permissions));
-        $this->assertTrue(in_array('CMS_ACCESS_SecurityAdmin', $permissions));
-        $this->assertTrue(in_array('EDIT_PERMISSIONS', $permissions));
+        $this->assertEquals(4, count($permissions ?? []));
+        $this->assertTrue(in_array('CMS_ACCESS_MyAdmin', $permissions ?? []));
+        $this->assertTrue(in_array('CMS_ACCESS_AssetAdmin', $permissions ?? []));
+        $this->assertTrue(in_array('CMS_ACCESS_SecurityAdmin', $permissions ?? []));
+        $this->assertTrue(in_array('EDIT_PERMISSIONS', $permissions ?? []));
 
         $group = $this->objFromFixture("SilverStripe\\Security\\Group", "access");
 
         Permission::deny($group->ID, "CMS_ACCESS_MyAdmin");
         $permissions = Permission::permissions_for_member($member->ID);
-        $this->assertEquals(3, count($permissions));
-        $this->assertFalse(in_array('CMS_ACCESS_MyAdmin', $permissions));
+        $this->assertEquals(3, count($permissions ?? []));
+        $this->assertFalse(in_array('CMS_ACCESS_MyAdmin', $permissions ?? []));
     }
 
     public function testRolesAndPermissionsFromParentGroupsAreInherited()
@@ -128,8 +129,8 @@ class PermissionTest extends SapphireTest
         $accessMember = $this->objFromFixture(Member::class, 'access');
         $accessAuthor = $this->objFromFixture(Member::class, 'author');
 
-        $result = Permission::get_members_by_permission(array('CMS_ACCESS_SecurityAdmin'));
-        $resultIDs = $result ? $result->column() : array();
+        $result = Permission::get_members_by_permission(['CMS_ACCESS_SecurityAdmin']);
+        $resultIDs = $result ? $result->column() : [];
 
         $this->assertContains(
             $accessMember->ID,
@@ -143,14 +144,14 @@ class PermissionTest extends SapphireTest
     public function testHiddenPermissions()
     {
         $permissionCheckboxSet = new PermissionCheckboxSetField('Permissions', 'Permissions', Permission::class, 'GroupID');
-        $this->assertContains('CMS_ACCESS_LeftAndMain', $permissionCheckboxSet->Field());
+        $this->assertStringContainsString('CMS_ACCESS_LeftAndMain', $permissionCheckboxSet->Field());
 
-        Config::modify()->merge(Permission::class, 'hidden_permissions', array('CMS_ACCESS_LeftAndMain'));
+        Config::modify()->merge(Permission::class, 'hidden_permissions', ['CMS_ACCESS_LeftAndMain']);
 
-        $this->assertNotContains('CMS_ACCESS_LeftAndMain', $permissionCheckboxSet->Field());
+        $this->assertStringNotContainsString('CMS_ACCESS_LeftAndMain', $permissionCheckboxSet->Field());
 
         Config::inst()->remove(Permission::class, 'hidden_permissions');
-        $this->assertContains('CMS_ACCESS_LeftAndMain', $permissionCheckboxSet->Field());
+        $this->assertStringContainsString('CMS_ACCESS_LeftAndMain', $permissionCheckboxSet->Field());
     }
 
     public function testEmptyMemberFails()
@@ -162,5 +163,125 @@ class PermissionTest extends SapphireTest
 
         $this->assertFalse(Permission::checkMember($member, 'ADMIN'));
         $this->assertFalse(Permission::checkMember($member, 'CMS_ACCESS_LeftAndMain'));
+    }
+
+    public function testGrantPermission()
+    {
+        $group = $this->objFromFixture(Group::class, 'testpermissiongroup');
+        $id = $group->ID;
+
+        Permission::grant($id, 'CMS_ACCESS_CMSMain');
+        Permission::grant($id, 'CMS_ACCESS_AssetAdmin');
+        Permission::grant($id, 'CMS_ACCESS_ReportAdmin');
+
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(3, $groupPermission->count());
+        $this->assertEquals(0, $groupPermission->first()->Arg);
+        $this->assertEquals(1, $groupPermission->first()->Type);
+
+
+        Permission::grant($id, 'CMS_ACCESS_CMSMain', 'all');
+        Permission::grant($id, 'CMS_ACCESS_AssetAdmin', 'all');
+        Permission::grant($id, 'CMS_ACCESS_ReportAdmin', 'all');
+
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(3, $groupPermission->count());
+        $this->assertEquals(-1, $groupPermission->first()->Arg);
+        $this->assertEquals(1, $groupPermission->first()->Type);
+
+        Permission::grant($id, 'CMS_ACCESS_CMSMain', 'any');
+        Permission::grant($id, 'CMS_ACCESS_AssetAdmin', 'any');
+        Permission::grant($id, 'CMS_ACCESS_ReportAdmin', 'any');
+
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(3, $groupPermission->count());
+        $this->assertEquals(-1, $groupPermission->first()->Arg);
+        $this->assertEquals(1, $groupPermission->first()->Type);
+    }
+
+    public function testDenyPermission()
+    {
+        $group = $this->objFromFixture(Group::class, 'testpermissiongroup');
+        $id = $group->ID;
+
+        Permission::deny($id, 'CMS_ACCESS_CMSMain');
+        Permission::deny($id, 'CMS_ACCESS_AssetAdmin');
+        Permission::deny($id, 'CMS_ACCESS_ReportAdmin');
+
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(3, $groupPermission->count());
+        $this->assertEquals(0, $groupPermission->first()->Arg);
+        $this->assertEquals(-1, $groupPermission->first()->Type);
+
+        Permission::deny($id, 'CMS_ACCESS_CMSMain', 'all');
+        Permission::deny($id, 'CMS_ACCESS_AssetAdmin', 'all');
+        Permission::deny($id, 'CMS_ACCESS_ReportAdmin', 'all');
+
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(3, $groupPermission->count());
+        $this->assertEquals(-1, $groupPermission->first()->Arg);
+        $this->assertEquals(-1, $groupPermission->first()->Type);
+
+        Permission::deny($id, 'CMS_ACCESS_CMSMain', 'any');
+        Permission::deny($id, 'CMS_ACCESS_AssetAdmin', 'any');
+        Permission::deny($id, 'CMS_ACCESS_ReportAdmin', 'any');
+
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(3, $groupPermission->count());
+        $this->assertEquals(-1, $groupPermission->first()->Arg);
+        $this->assertEquals(-1, $groupPermission->first()->Type);
+    }
+
+    public function testDenyThenGrantPermission()
+    {
+        $member = $this->objFromFixture(Member::class, 'testcmseditormember');
+        $group = $this->objFromFixture(Group::class, 'testcmseditorgroup');
+        $id = $group->ID;
+
+        $this->logInAs($member);
+
+        Permission::grant($id, 'TEST_CMS_EDITOR');
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(1, $groupPermission->count());
+        $this->assertEquals(1, $groupPermission->first()->Type);
+        $this->assertTrue(Permission::check('TEST_CMS_EDITOR'));
+
+        Permission::deny($id, 'TEST_CMS_EDITOR');
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(1, $groupPermission->count());
+        $this->assertEquals(-1, $groupPermission->last()->Type);
+        $this->assertFalse(Permission::check('TEST_CMS_EDITOR'));
+
+        Permission::grant($id, 'TEST_CMS_EDITOR');
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+
+        $this->assertEquals(1, $groupPermission->count());
+        $this->assertEquals(1, $groupPermission->first()->Type);
+        $this->assertTrue(Permission::check('TEST_CMS_EDITOR'));
+
+        Permission::grant($id, 'CMS_ACCESS_AssetAdmin');
+        $groupPermission = Permission::get()->filter(['GroupID' => $id]);
+        $this->assertEquals(2, $groupPermission->count());
+
+        $groupPermissionAssetAdmin = Permission::get()->filter(
+            [
+                'GroupID' => $id,
+                'Code' => 'CMS_ACCESS_AssetAdmin',
+            ]
+        );
+        $this->assertEquals(1, $groupPermissionAssetAdmin->count());
+        $this->assertEquals(1, $groupPermissionAssetAdmin->first()->Type);
+
+        $this->assertTrue(Permission::check('CMS_ACCESS_AssetAdmin'));
+
+        $this->logOut();
     }
 }

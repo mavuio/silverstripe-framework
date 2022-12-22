@@ -50,9 +50,9 @@ class ViewableData implements IteratorAggregate
      * @var array
      * @config
      */
-    private static $casting = array(
+    private static $casting = [
         'CSSClasses' => 'Varchar'
-    );
+    ];
 
     /**
      * The default object to cast scalar fields to if casting information is not specified, and casting to an object
@@ -66,7 +66,7 @@ class ViewableData implements IteratorAggregate
     /**
      * @var array
      */
-    private static $casting_cache = array();
+    private static $casting_cache = [];
 
     // -----------------------------------------------------------------------------------------------------------------
 
@@ -85,7 +85,7 @@ class ViewableData implements IteratorAggregate
     /**
      * @var array
      */
-    private $objCache = array();
+    private $objCache = [];
 
     public function __construct()
     {
@@ -106,11 +106,13 @@ class ViewableData implements IteratorAggregate
     public function __isset($property)
     {
         // getField() isn't a field-specific getter and shouldn't be treated as such
-        if (strtolower($property) !== 'field' && $this->hasMethod($method = "get$property")) {
+        if (strtolower($property ?? '') !== 'field' && $this->hasMethod($method = "get$property")) {
             return true;
-        } elseif ($this->hasField($property)) {
+        }
+        if ($this->hasField($property)) {
             return true;
-        } elseif ($this->failover) {
+        }
+        if ($this->failover) {
             return isset($this->failover->$property);
         }
 
@@ -127,11 +129,13 @@ class ViewableData implements IteratorAggregate
     public function __get($property)
     {
         // getField() isn't a field-specific getter and shouldn't be treated as such
-        if (strtolower($property) !== 'field' && $this->hasMethod($method = "get$property")) {
+        if (strtolower($property ?? '') !== 'field' && $this->hasMethod($method = "get$property")) {
             return $this->$method();
-        } elseif ($this->hasField($property)) {
+        }
+        if ($this->hasField($property)) {
             return $this->getField($property);
-        } elseif ($this->failover) {
+        }
+        if ($this->failover) {
             return $this->failover->$property;
         }
 
@@ -189,7 +193,7 @@ class ViewableData implements IteratorAggregate
      */
     public function hasField($field)
     {
-        return property_exists($this, $field);
+        return property_exists($this, $field ?? '');
     }
 
     /**
@@ -269,7 +273,7 @@ class ViewableData implements IteratorAggregate
     /**
      * Return true if this object "exists" i.e. has a sensible value
      *
-     * This method should be overriden in subclasses to provide more context about the classes state. For example, a
+     * This method should be overridden in subclasses to provide more context about the classes state. For example, a
      * {@link DataObject} class could return false when it is deleted from the database
      *
      * @return bool
@@ -315,9 +319,12 @@ class ViewableData implements IteratorAggregate
      */
     public function castingHelper($field)
     {
-        $specs = static::config()->get('casting');
-        if (isset($specs[$field])) {
-            return $specs[$field];
+        // Get casting if it has been configured.
+        // DB fields and PHP methods are all case insensitive so we normalise casing before checking.
+        $specs = array_change_key_case(static::config()->get('casting'), CASE_LOWER);
+        $fieldLower = strtolower($field);
+        if (isset($specs[$fieldLower])) {
+            return $specs[$fieldLower];
         }
 
         // If no specific cast is declared, fall back to failover.
@@ -349,7 +356,7 @@ class ViewableData implements IteratorAggregate
     {
         // Strip arguments
         $spec = $this->castingHelper($field);
-        return trim(strtok($spec, '('));
+        return trim(strtok($spec ?? '', '(') ?? '');
     }
 
     /**
@@ -398,7 +405,7 @@ class ViewableData implements IteratorAggregate
         }
 
         throw new UnexpectedValueException(
-            "ViewableData::renderWith(): unexpected ".get_class($template)." object, expected an SSViewer instance"
+            "ViewableData::renderWith(): unexpected " . get_class($template) . " object, expected an SSViewer instance"
         );
     }
 
@@ -478,7 +485,7 @@ class ViewableData implements IteratorAggregate
 
         // Load value from record
         if ($this->hasMethod($fieldName)) {
-            $value = call_user_func_array(array($this, $fieldName), $arguments ?: []);
+            $value = call_user_func_array([$this, $fieldName], $arguments ?: []);
         } else {
             $value = $this->$fieldName;
         }
@@ -526,7 +533,7 @@ class ViewableData implements IteratorAggregate
     public function hasValue($field, $arguments = [], $cache = true)
     {
         $result = $this->obj($field, $arguments, $cache);
-            return $result->exists();
+        return $result->exists();
     }
 
     /**
@@ -553,7 +560,7 @@ class ViewableData implements IteratorAggregate
      */
     public function getXMLValues($fields)
     {
-        $result = array();
+        $result = [];
 
         foreach ($fields as $field) {
             $result[$field] = $this->XML_val($field);
@@ -572,9 +579,10 @@ class ViewableData implements IteratorAggregate
      *
      * @return ArrayIterator
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
-        return new ArrayIterator(array($this));
+        return new ArrayIterator([$this]);
     }
 
     // UTILITY METHODS -------------------------------------------------------------------------------------------------
@@ -611,15 +619,15 @@ class ViewableData implements IteratorAggregate
      * project directory.
      *
      * @return string URL to the current theme
-     * @deprecated 4.0.0..5.0.0 Use $resourcePath or $resourceURL template helpers instead
+     * @deprecated 4.0.1 Use ModuleResourceLoader::resourcePath() or ModuleResourceLoader::resourceURL() instead
      */
     public function ThemeDir()
     {
-        Deprecation::notice('5.0', 'Use $resourcePath or $resourceURL template helpers instead');
+        Deprecation::notice('4.0.1', 'Use ModuleResourceLoader::resourcePath() or ModuleResourceLoader::resourceURL() instead');
         $themes = SSViewer::get_themes();
         foreach ($themes as $theme) {
             // Skip theme sets
-            if (strpos($theme, '$') === 0) {
+            if (strpos($theme ?? '', '$') === 0) {
                 continue;
             }
             // Map theme path to url
@@ -642,24 +650,24 @@ class ViewableData implements IteratorAggregate
      */
     public function CSSClasses($stopAtClass = self::class)
     {
-        $classes       = array();
-        $classAncestry = array_reverse(ClassInfo::ancestry(static::class));
+        $classes       = [];
+        $classAncestry = array_reverse(ClassInfo::ancestry(static::class) ?? []);
         $stopClasses   = ClassInfo::ancestry($stopAtClass);
 
         foreach ($classAncestry as $class) {
-            if (in_array($class, $stopClasses)) {
+            if (in_array($class, $stopClasses ?? [])) {
                 break;
             }
             $classes[] = $class;
         }
 
         // optionally add template identifier
-        if (isset($this->template) && !in_array($this->template, $classes)) {
+        if (isset($this->template) && !in_array($this->template, $classes ?? [])) {
             $classes[] = $this->template;
         }
 
         // Strip out namespaces
-        $classes = preg_replace('#.*\\\\#', '', $classes);
+        $classes = preg_replace('#.*\\\\#', '', $classes ?? '');
 
         return Convert::raw2att(implode(' ', $classes));
     }

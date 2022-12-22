@@ -4,8 +4,10 @@ namespace SilverStripe\Security\Tests;
 
 use SilverStripe\Dev\SapphireTest;
 use SilverStripe\Security\Member;
+use SilverStripe\Security\PasswordEncryptor;
 use SilverStripe\Security\Permission;
 use SilverStripe\Security\DefaultAdminService;
+use SilverStripe\Security\Security;
 
 class SecurityDefaultAdminTest extends SapphireTest
 {
@@ -15,7 +17,7 @@ class SecurityDefaultAdminTest extends SapphireTest
 
     protected $defaultPassword = null;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -34,11 +36,12 @@ class SecurityDefaultAdminTest extends SapphireTest
             $this->defaultUsername = null;
             $this->defaultPassword = null;
         }
+        Security::config()->set('password_encryption_algorithm', 'blowfish');
         DefaultAdminService::setDefaultAdmin('admin', 'password');
         Permission::reset();
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         DefaultAdminService::clearDefaultAdmin();
         if ($this->defaultUsername) {
@@ -76,7 +79,8 @@ class SecurityDefaultAdminTest extends SapphireTest
         $this->assertTrue(Permission::checkMember($admin, 'ADMIN'));
         $this->assertEquals($admin->Email, DefaultAdminService::getDefaultAdminUsername());
         $this->assertTrue(DefaultAdminService::isDefaultAdmin($admin->Email));
-        $this->assertNull($admin->Password);
+        $this->assertStringStartsWith('$2y$10$', $admin->Password);
+        $this->assertArrayHasKey($admin->PasswordEncryption, PasswordEncryptor::get_encryptors());
     }
 
     public function testFindOrCreateAdmin()
@@ -90,7 +94,7 @@ class SecurityDefaultAdminTest extends SapphireTest
         $this->assertTrue(Permission::checkMember($admin, 'ADMIN'));
         $this->assertEquals('newadmin@example.com', $admin->Email);
         $this->assertEquals('Admin Name', $admin->FirstName);
-        $this->assertNull($admin->Password);
+        $this->assertStringStartsWith('$2y$10$', $admin->Password);
     }
 
     public function testFindAnAdministratorWithoutDefaultAdmin()
@@ -110,9 +114,8 @@ class SecurityDefaultAdminTest extends SapphireTest
         $admin = $service->findOrCreateDefaultAdmin();
         $this->assertTrue(Permission::checkMember($admin, 'ADMIN'));
 
-        // User should have Email but no Password
         $this->assertEquals('admin', $admin->Email);
-        $this->assertEmpty($admin->Password);
+        $this->assertStringStartsWith('$2y$10$', $admin->Password);
     }
 
     public function testDefaultAdmin()
@@ -125,6 +128,6 @@ class SecurityDefaultAdminTest extends SapphireTest
         $this->assertTrue(Permission::checkMember($admin, 'ADMIN'));
         $this->assertEquals($admin->Email, DefaultAdminService::getDefaultAdminUsername());
         $this->assertTrue(DefaultAdminService::isDefaultAdmin($admin->Email));
-        $this->assertNull($admin->Password);
+        $this->assertStringStartsWith('$2y$10$', $admin->Password);
     }
 }

@@ -30,10 +30,10 @@ class Member_Validator extends RequiredFields
      * @var array
      * @skipUpgrade
      */
-    protected $customRequired = array(
+    protected $customRequired = [
         'FirstName',
         'Email'
-    );
+    ];
 
     /**
      * Determine what member this validator is meant for
@@ -60,7 +60,7 @@ class Member_Validator extends RequiredFields
             $required = array_merge($required, $config);
         }
 
-        parent::__construct(array_unique($required));
+        parent::__construct(array_unique($required ?? []));
     }
 
     /**
@@ -129,7 +129,7 @@ class Member_Validator extends RequiredFields
                     _t(
                         'SilverStripe\\Security\\Member.VALIDATIONMEMBEREXISTS',
                         'A member already exists with the same {identifier}',
-                        array('identifier' => Member::singleton()->fieldLabel($identifierField))
+                        ['identifier' => Member::singleton()->fieldLabel($identifierField)]
                     ),
                     'required'
                 );
@@ -149,11 +149,11 @@ class Member_Validator extends RequiredFields
                 $stillAdmin = false;
             } else {
                 $adminGroups = array_intersect(
-                    $data['DirectGroups'],
+                    $data['DirectGroups'] ?? [],
                     Permission::get_groups_by_permission('ADMIN')->column()
                 );
 
-                if (count($adminGroups) === 0) {
+                if (count($adminGroups ?? []) === 0) {
                     $stillAdmin = false;
                 }
             }

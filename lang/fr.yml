@@ -19,8 +19,6 @@ fr:
   SilverStripe\Control\RequestProcessor:
     INVALID_REQUEST: 'Requête invalide'
     REQUEST_ABORTED: 'Requête non aboutie'
-  SilverStripe\Core\Manifest\VersionProvider:
-    VERSIONUNKNOWN: Inconnu
   SilverStripe\Forms\CheckboxField:
     NOANSWER: Non
     YESANSWER: Oui
@@ -34,11 +32,7 @@ fr:
     LOGGED_IN_ERROR: 'Vous devez être connecté pour pouvoir changer votre mot de passe'
     MAXIMUM: 'Le mot de passe ne doit pas comporter plus de {max} caractères.'
     SHOWONCLICKTITLE: 'Changer le mot de passe'
-  SilverStripe\Forms\CurrencyField:
-    CURRENCYSYMBOL: $
   SilverStripe\Forms\DateField:
-    NOTSET: 'non renseigné'
-    TODAY: 'aujourd''hui'
     VALIDDATEFORMAT2: 'Saisissez une date au format valide ({format})'
     VALIDDATEMAXDATE: 'La date doit être antérieure ou égale à celle autorisée ({date})'
     VALIDDATEMINDATE: 'La date doit être postérieure ou égale à celle autorisée ({date})'
@@ -48,7 +42,6 @@ fr:
     VALIDDATETIMEMINDATE: 'La date doit être postérieure ou égale à celle autorisée ({datetime})'
   SilverStripe\Forms\DropdownField:
     CHOOSE: (Choisir)
-    CHOOSE_MODEL: '(Choisir {name})'
     SOURCE_VALIDATION: 'Merci de choisir une valeur parmi celles proposées dans la liste. {value} n''est pas une option valide'
   SilverStripe\Forms\EmailField:
     VALIDATION: 'Merci de saisir une adresse email'
@@ -86,7 +79,6 @@ fr:
     RelationSearch: 'Rechercher relations'
     ResetFilter: Réinitialiser
   SilverStripe\Forms\GridField\GridFieldDeleteAction:
-    DELETE_DESCRIPTION: Supprimer
     Delete: Supprimer
     DeletePermissionsFailure: 'Vous n’avez pas les autorisations pour supprimer'
     EditPermissionsFailure: 'Pas de permissions pour délier l''enregistrement'
@@ -98,23 +90,12 @@ fr:
     DeletePermissionsFailure: 'Vous n’avez pas les autorisations pour supprimer'
     Deleted: '{type} {name} supprimés'
     Save: Enregistrer
-  SilverStripe\Forms\GridField\GridFieldEditButton_ss:
-    EDIT: Editer
   SilverStripe\Forms\GridField\GridFieldGroupDeleteAction:
     UnlinkSelfFailure: 'Impossible de retirer votre propre profil de ce groupe, vous perdriez vos droits d''administration'
   SilverStripe\Forms\GridField\GridFieldPaginator:
     OF: de
     Page: Page
     View: Vue
-  SilverStripe\Forms\GridField\GridFieldVersionedState:
-    ADDEDTODRAFTHELP: 'L''élément n''a pas encore été publié'
-    ADDEDTODRAFTSHORT: Brouillon
-    ARCHIVEDPAGEHELP: 'Elément retiré du brouillon et du site public'
-    ARCHIVEDPAGESHORT: Archivé
-    MODIFIEDONDRAFTHELP: 'L''élément comporte des modifications non sauvegardées'
-    MODIFIEDONDRAFTSHORT: Modifié
-    ONLIVEONLYSHORT: 'Site public uniquement'
-    ONLIVEONLYSHORTHELP: 'L''élément a été publié, mais sa version brouillon a été supprimée'
   SilverStripe\Forms\MoneyField:
     FIELDLABELAMOUNT: Quantité
     FIELDLABELCURRENCY: Devise
@@ -132,6 +113,7 @@ fr:
     PLURALS:
       one: 'Un modèle de donnée'
       other: '{count} modèles de donnée'
+      many: '{count} modèles de donnée'
     SINGULARNAME: 'Modèle de donnée'
   SilverStripe\ORM\FieldType\DBBoolean:
     ANY: Tout
@@ -141,24 +123,30 @@ fr:
     DAYS_SHORT_PLURALS:
       one: '{count} jour'
       other: '{count} jours'
+      many: '{count} jours'
     HOURS_SHORT_PLURALS:
       one: '{count} heure'
       other: '{count} heures'
+      many: '{count} heures'
     LessThanMinuteAgo: 'moins d''une minute'
     MINUTES_SHORT_PLURALS:
       one: '{count} min.'
       other: '{count} min.'
+      many: '{count} min.'
     MONTHS_SHORT_PLURALS:
       one: '{count} mois'
       other: '{count} mois'
+      many: '{count} mois'
     SECONDS_SHORT_PLURALS:
       one: '{count} sec.'
       other: '{count} sec.'
+      many: '{count} sec.'
     TIMEDIFFAGO: 'Il y a {difference}'
     TIMEDIFFIN: 'Dans {difference}'
     YEARS_SHORT_PLURALS:
       one: '{count} année'
       other: '{count} années'
+      many: '{count} années'
   SilverStripe\ORM\FieldType\DBEnum:
     ANY: Tout
   SilverStripe\ORM\Hierarchy:
@@ -201,6 +189,7 @@ fr:
     PLURALS:
       one: 'Un groupe'
       other: '{count} groupes'
+      many: '{count} groupes'
     Parent: 'Groupe parent'
     ROLES: Rôles
     ROLESDESCRIPTION: 'Les rôles sont des ensembles de permissions prédéfinies, et ils peuvent être attribués à des groupes. <br />Si nécessaire, ils peuvent hériter de groupes parents.'
@@ -211,11 +200,13 @@ fr:
     many_many_Members: Membres
   SilverStripe\Security\LoginAttempt:
     Email: 'Adresse email'
+    EmailHashed: 'Adresse Email (hashed)'
     IP: 'Adresse IP'
     PLURALNAME: 'Tentatives de connexion'
     PLURALS:
       one: 'Une tentative de connexion'
       other: '{count} tentatives de connexion'
+      many: '{count} tentatives de connexion'
     SINGULARNAME: 'Tentative de connexion'
     Status: Statut
   SilverStripe\Security\Member:
@@ -238,7 +229,6 @@ fr:
     ERRORWRONGCRED: 'Il semble que ce ne soit pas le bon email ou mot de passe. Merci de réessayer.'
     FIRSTNAME: Prénom
     INTERFACELANG: 'Langue de l''interface'
-    KEEPMESIGNEDIN: 'Se souvenir de moi'
     LOGGEDINAS: 'Vous êtes connecté en tant que {name}.'
     NEWPASSWORD: 'Nouveau mot de passe'
     PASSWORD: 'Mot de passe'
@@ -247,14 +237,13 @@ fr:
     PLURALS:
       one: 'Un membre'
       other: '{count} membres'
-    REMEMBERME: 'Se souvenir de moi la prochaine fois  ? (pour une durée de {count} jours sur cet appareil)'
+      many: '{count} membres'
     SINGULARNAME: Membre
     SUBJECTPASSWORDCHANGED: 'Votre mot de passe a été changé'
     SUBJECTPASSWORDRESET: 'Lien pour modifier votre mot de passe'
     SURNAME: 'Nom de famille'
     VALIDATIONADMINLOSTACCESS: 'Impossible de retirer tous les groupes d''administrateur à partir de votre profil'
     ValidationIdentifierFailed: 'Impossible de réenregistrer le membre nº {id} avec un identifiant identique  ({name} = {value}))'
-    WELCOMEBACK: 'Bienvenue de nouveau,  {firstname}'
     YOUROLDPASSWORD: 'Votre ancien mot de passe'
     belongs_many_many_Groups: Groupes
     db_Locale: 'Langue de l''Interface'
@@ -269,11 +258,14 @@ fr:
   SilverStripe\Security\MemberAuthenticator\MemberAuthenticator:
     ERRORWRONGCRED: 'Les renseignements fournis semblent incorrects. Merci de réessayer.'
     NoPassword: 'Ce membre n''a pas de mot de passe'
+  SilverStripe\Security\MemberAuthenticator\MemberLoginForm:
+    AUTHENTICATORNAME: 'Email & Mot de passe'
   SilverStripe\Security\MemberPassword:
     PLURALNAME: 'Mots de passe utilisateur'
     PLURALS:
       one: 'Un mot de passe utilisateur'
       other: '{count} mots de passe utilisateur'
+      many: '{count} mots de passe utilisateur'
     SINGULARNAME: 'Mot de passe utilisateur'
   SilverStripe\Security\PasswordValidator:
     LOWCHARSTRENGTH: 'Veuillez renforcer votre mot de passe en ajoutant certains des caractères suivants : {chars}'
@@ -290,6 +282,7 @@ fr:
     PLURALS:
       one: 'Une autorisation'
       other: '{count} autorisations'
+      many: '{count} autorisations'
     SINGULARNAME: Permission
     UserPermissionsIntro: "Assigner des groupes à cet utilisateur modifiera les autorisations dont il dispose. Consultez la section «\_Groupes\_» pour plus de détails sur les autorisations associées à chaque groupe."
   SilverStripe\Security\PermissionCheckboxSetField:
@@ -303,6 +296,7 @@ fr:
     PLURALS:
       one: 'Un rôle'
       other: '{count} rôles'
+      many: '{count} rôles'
     SINGULARNAME: Rôle
     Title: Titre
   SilverStripe\Security\PermissionRoleCode:
@@ -310,6 +304,7 @@ fr:
     PLURALS:
       one: 'Un code d''autorisation lié au rôle'
       other: '{count} codes d''autorisation liés au rôle'
+      many: '{count} codes d''autorisation liés au rôle'
     PermsError: 'Impossible d''attribuer le code "{code}" (requiert un accès en tant qu''administrateur)'
     SINGULARNAME: 'Code d''autorisation lié au rôle'
   SilverStripe\Security\RememberLoginHash:
@@ -317,6 +312,7 @@ fr:
     PLURALS:
       one: 'Une signature de mot de passe'
       other: '{count} signatures de mot de passe'
+      many: '{count} signatures de mot de passe'
     SINGULARNAME: 'Signature de mot de passe'
   SilverStripe\Security\Security:
     ALREADYLOGGEDIN: 'Vous n''avez pas accès à cette page. Si un autre de vos identifiants vous permet d''accéder à cette page, merci de vous reconnecter ci-dessous en l''utilisant.'
@@ -330,7 +326,4 @@ fr:
     LOGOUT: 'Se déconnecter'
     LOSTPASSWORDHEADER: 'Mot de passe oublié'
     NOTEPAGESECURED: 'Cette page est sécurisée. Entrez vos identifiants ci-dessous et vous pourrez y avoir accès.'
-    NOTERESETLINKINVALID: '<p>Le lien de réinitialisation du mot de passe n’est pas valide ou a expiré.</p><p>Vous pouvez en demander un nouveau <a href="{link1}">en suivant ce lien</a> ou changer de mot de passe après <a href="{link2}">connexion</a>.</p>'
     NOTERESETPASSWORD: 'Entrez votre adresse email et nous vous enverrons un lien pour modifier votre mot de passe'
-    PASSWORDSENTHEADER: "Lien de réinitialisation de mot de passe envoyé  à «\_{email}\_»"
-    PASSWORDSENTTEXT: "Merci\_! Un lien de réinitialisation vient d’être envoyé à «\_{email}\_», à condition que cette adresse existe."

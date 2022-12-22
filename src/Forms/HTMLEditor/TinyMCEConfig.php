@@ -3,9 +3,9 @@
 namespace SilverStripe\Forms\HTMLEditor;
 
 use Exception;
+use SilverStripe\Assets\Folder;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\Director;
-use SilverStripe\Core\Convert;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Core\Manifest\Module;
 use SilverStripe\Core\Manifest\ModuleLoader;
@@ -13,6 +13,7 @@ use SilverStripe\Core\Manifest\ModuleResource;
 use SilverStripe\Core\Manifest\ModuleResourceLoader;
 use SilverStripe\Dev\Deprecation;
 use SilverStripe\i18n\i18n;
+use SilverStripe\i18n\i18nEntityProvider;
 use SilverStripe\View\Requirements;
 use SilverStripe\View\SSViewer;
 use SilverStripe\View\ThemeResourceLoader;
@@ -20,7 +21,7 @@ use SilverStripe\View\ThemeResourceLoader;
 /**
  * Default configuration for HtmlEditor specific to tinymce
  */
-class TinyMCEConfig extends HTMLEditorConfig
+class TinyMCEConfig extends HTMLEditorConfig implements i18nEntityProvider
 {
     /**
      * @config
@@ -203,41 +204,100 @@ class TinyMCEConfig extends HTMLEditorConfig
     private static $editor_css = [];
 
     /**
+     * List of content css files to use for this instance, or null to default to editor_css config.
+     *
+     * @var string[]|null
+     */
+    protected $contentCSS = null;
+
+
+    /**
+     * List of image size preset that will appear when you select an image. Each preset can have the following:
+     * * `name` to store an internal name for the preset (required)
+     * * `i18n` to store a translation key (e.g.: `SilverStripe\Forms\HTMLEditor\TinyMCEConfig.BESTFIT`)
+     * * `text` that will appear in the button (should be the default English translation)
+     * * `width` which will define the horizontal size of the preset. If not provided, the preset will match the
+     *   original size of the image.
+     * @var array[]
+     * @config
+     */
+    private static $image_size_presets = [ ];
+
+    /**
      * TinyMCE JS settings
      *
-     * @link https://www.tinymce.com/docs/configure/
+     * @link https://www.tiny.cloud/docs-4x/general-configuration-guide/
      *
      * @var array
      */
-    protected $settings = array(
-        'fix_list_elements' => true, // https://www.tinymce.com/docs/configure/content-filtering/#fix_list_elements
+    protected $settings = [
+        'fix_list_elements' => true, // https://www.tiny.cloud/docs-4x/configure/content-filtering/#fix_list_elements
+        'formats' => [
+            'alignleft' => [
+                [
+                    'selector' => 'p,h1,h2,h3,h4,h5,h6,td,th,li',
+                    'classes' =>'text-left'
+                ],
+                [
+                    'selector' => 'div,ul,ol,table,img,figure',
+                    'classes' =>'left'
+                ]
+            ],
+            'aligncenter' => [
+                [
+                    'selector' => 'p,h1,h2,h3,h4,h5,h6,td,th,li',
+                    'classes' =>'text-center'
+                ],
+                [
+                    'selector' => 'div,ul,ol,table,img,figure',
+                    'classes' =>'center'
+                ]
+            ],
+            'alignright' => [
+                [
+                    'selector' => 'p,h1,h2,h3,h4,h5,h6,td,th,li',
+                    'classes' =>'text-right'
+                ],
+                [
+                    'selector' => 'div,ul,ol,table,img,figure',
+                    'classes' =>'right'
+                ]
+            ],
+            'alignjustify' => [
+                [
+                    'selector' => 'p,h1,h2,h3,h4,h5,h6,td,th,li',
+                    'classes' =>'text-justify'
+                ],
+            ],
+        ],
         'friendly_name' => '(Please set a friendly name for this config)',
         'priority' => 0, // used for Per-member config override
         'browser_spellcheck' => true,
         'body_class' => 'typography',
         'statusbar' => true,
-        'elementpath' => true, // https://www.tinymce.com/docs/configure/editor-appearance/#elementpath
+        'elementpath' => true, // https://www.tiny.cloud/docs-4x/configure/editor-appearance/#elementpath
         'relative_urls' => true,
         'remove_script_host' => true,
         'convert_urls' => false, // Prevent site-root images being rewritten to base relative
         'menubar' => false,
         'language' => 'en',
         'branding' => false,
-    );
+        'upload_folder_id' => null, // Set folder ID for insert media dialog
+    ];
 
     /**
      * Holder list of enabled plugins
      *
      * @var array
      */
-    protected $plugins = array(
+    protected $plugins = [
         'table' => null,
         'emoticons' => null,
         'paste' => null,
         'code' => null,
         'importcss' => null,
         'lists' => null,
-    );
+    ];
 
     /**
      * Theme name
@@ -271,7 +331,7 @@ class TinyMCEConfig extends HTMLEditorConfig
     /**
      * Holder list of buttons, organised by line. This array is 1-based indexed array
      *
-     * {@link https://www.tinymce.com/docs/advanced/editor-control-identifiers/#toolbarcontrols}
+     * {@link https://www.tiny.cloud/docs-4x/advanced/editor-control-identifiers/#toolbarcontrols}
      *
      * @var array
      */
@@ -326,7 +386,7 @@ class TinyMCEConfig extends HTMLEditorConfig
     {
         return [
             'data-editor' => 'tinyMCE', // Register ss.editorWrappers.tinyMCE
-            'data-config' => Convert::array2json($this->getConfig()),
+            'data-config' => json_encode($this->getConfig()),
         ];
     }
 
@@ -343,19 +403,19 @@ class TinyMCEConfig extends HTMLEditorConfig
      *
      * If passing in an associative array, the key of each item should be the plugin name.
      * The value of each item is one of:
-     *  - null - Will be treated as a stardard plugin in the standard location
+     *  - null - Will be treated as a standard plugin in the standard location
      *  - relative path - Will be treated as a relative url
      *  - absolute url - Some url to an external plugin
      *  - An instance of ModuleResource object containing the plugin
      *
-     * @param string|array $plugin,... a string, or several strings, or a single array of strings - The plugins to enable
+     * @param string|array ...$plugin a string, or several strings, or a single array of strings - The plugins to enable
      * @return $this
      */
     public function enablePlugins($plugin)
     {
         $plugins = func_get_args();
-        if (is_array(current($plugins))) {
-            $plugins = current($plugins);
+        if (is_array(current($plugins ?? []))) {
+            $plugins = current($plugins ?? []);
         }
         foreach ($plugins as $name => $path) {
             // if plugins are passed without a path
@@ -363,7 +423,7 @@ class TinyMCEConfig extends HTMLEditorConfig
                 $name = $path;
                 $path = null;
             }
-            if (!array_key_exists($name, $this->plugins)) {
+            if (!array_key_exists($name, $this->plugins ?? [])) {
                 $this->plugins[$name] = $path;
             }
         }
@@ -372,14 +432,14 @@ class TinyMCEConfig extends HTMLEditorConfig
 
     /**
      * Enable one or several plugins. Will properly handle being passed a plugin that is already disabled
-     * @param string|array $plugin,... a string, or several strings, or a single array of strings - The plugins to enable
+     * @param string|array ...$plugin a string, or several strings, or a single array of strings - The plugins to enable
      * @return $this
      */
     public function disablePlugins($plugin)
     {
         $plugins = func_get_args();
-        if (is_array(current($plugins))) {
-            $plugins = current($plugins);
+        if (is_array(current($plugins ?? []))) {
+            $plugins = current($plugins ?? []);
         }
         foreach ($plugins as $name) {
             unset($this->plugins[$name]);
@@ -425,15 +485,15 @@ class TinyMCEConfig extends HTMLEditorConfig
      */
     public function getButtons()
     {
-        return array_filter($this->buttons);
+        return array_filter($this->buttons ?? []);
     }
 
     /**
      * Totally re-set the buttons on a given line
      *
      * @param int $line The line number to redefine, from 1 to 3
-     * @param string $buttons,... A string or several strings, or a single array of strings.
-     * The button names to assign to this line.
+     * @param string|string[] $buttons,... An array of strings, or one or more strings.
+     *                                     The button names to assign to this line.
      * @return $this
      */
     public function setButtonsForLine($line, $buttons)
@@ -442,14 +502,14 @@ class TinyMCEConfig extends HTMLEditorConfig
             $buttons = func_get_args();
             array_shift($buttons);
         }
-        $this->buttons[$line] = is_array($buttons) ? $buttons : array($buttons);
+        $this->buttons[$line] = is_array($buttons) ? $buttons : [$buttons];
         return $this;
     }
 
     /**
      * Add buttons to the end of a line
      * @param int $line The line number to redefine, from 1 to 3
-     * @param string $buttons,... A string or several strings, or a single array of strings.
+     * @param string ...$buttons A string or several strings, or a single array of strings.
      * The button names to add to this line
      * @return $this
      */
@@ -481,7 +541,7 @@ class TinyMCEConfig extends HTMLEditorConfig
     protected function modifyButtons($name, $offset, $del = 0, $add = null)
     {
         foreach ($this->buttons as &$buttons) {
-            if (($idx = array_search($name, $buttons)) !== false) {
+            if (($idx = array_search($name, $buttons ?? [])) !== false) {
                 if ($add) {
                     array_splice($buttons, $idx + $offset, $del, $add);
                 } else {
@@ -494,11 +554,11 @@ class TinyMCEConfig extends HTMLEditorConfig
     }
 
     /**
-     * Insert buttons before the first occurance of another button
+     * Insert buttons before the first occurrence of another button
      * @param string $before the name of the button to insert other buttons before
-     * @param string $buttons,... a string, or several strings, or a single array of strings.
+     * @param string ...$buttons a string, or several strings, or a single array of strings.
      * The button names to insert before that button
-     * @return bool True if insertion occured, false if it did not (because the given button name was not found)
+     * @return bool True if insertion occurred, false if it did not (because the given button name was not found)
      */
     public function insertButtonsBefore($before, $buttons)
     {
@@ -513,11 +573,11 @@ class TinyMCEConfig extends HTMLEditorConfig
     }
 
     /**
-     * Insert buttons after the first occurance of another button
+     * Insert buttons after the first occurrence of another button
      * @param string $after the name of the button to insert other buttons before
-     * @param string $buttons,... a string, or several strings, or a single array of strings.
+     * @param string ...$buttons a string, or several strings, or a single array of strings.
      * The button names to insert after that button
-     * @return bool True if insertion occured, false if it did not (because the given button name was not found)
+     * @return bool True if insertion occurred, false if it did not (because the given button name was not found)
      */
     public function insertButtonsAfter($after, $buttons)
     {
@@ -532,8 +592,8 @@ class TinyMCEConfig extends HTMLEditorConfig
     }
 
     /**
-     * Remove the first occurance of buttons
-     * @param string $buttons,... one or more strings - the name of the buttons to remove
+     * Remove the first occurrence of buttons
+     * @param string|string[] $buttons,... An array of strings, or one or more strings. The button names to remove.
      */
     public function removeButtons($buttons)
     {
@@ -559,10 +619,10 @@ class TinyMCEConfig extends HTMLEditorConfig
     {
         $settings = $this->getSettings();
 
-        // https://www.tinymce.com/docs/configure/url-handling/#document_base_url
+        // https://www.tiny.cloud/docs-4x/configure/url-handling/#document_base_url
         $settings['document_base_url'] = Director::absoluteBaseURL();
 
-        // https://www.tinymce.com/docs/api/class/tinymce.editormanager/#baseURL
+        // https://www.tiny.cloud/docs-4x/api/tinymce/tinymce.editormanager/#properties
         $baseResource = $this->getTinyMCEResource();
         if ($baseResource instanceof ModuleResource) {
             $tinyMCEBaseURL = $baseResource->getURL();
@@ -572,7 +632,7 @@ class TinyMCEConfig extends HTMLEditorConfig
         $settings['baseURL'] = $tinyMCEBaseURL;
 
         // map all plugins to absolute urls for loading
-        $plugins = array();
+        $plugins = [];
         foreach ($this->getPlugins() as $plugin => $path) {
             if ($path instanceof ModuleResource) {
                 $path = Director::absoluteURL($path->getURL());
@@ -589,53 +649,107 @@ class TinyMCEConfig extends HTMLEditorConfig
             $plugins[$plugin] = $path;
         }
 
-        // https://www.tinymce.com/docs/configure/integration-and-setup/#external_plugins
+        // https://www.tiny.cloud/docs-4x/configure/integration-and-setup/#external_plugins
         if ($plugins) {
             $settings['external_plugins'] = $plugins;
         }
 
-        // https://www.tinymce.com/docs/configure/editor-appearance/#groupingtoolbarcontrols
+        // https://www.tiny.cloud/docs-4x/configure/editor-appearance/#groupingtoolbarcontrols
         $buttons = $this->getButtons();
         $settings['toolbar'] = [];
         foreach ($buttons as $rowButtons) {
             $row = implode(' ', $rowButtons);
-            if (count($buttons) > 1) {
+            if (count($buttons ?? []) > 1) {
                 $settings['toolbar'][] = $row;
             } else {
                 $settings['toolbar'] = $row;
             }
         }
 
-        // https://www.tinymce.com/docs/configure/content-appearance/#content_css
+        // https://www.tiny.cloud/docs-4x/configure/content-appearance/#content_css
         $settings['content_css'] = $this->getEditorCSS();
 
-        // https://www.tinymce.com/docs/configure/editor-appearance/#theme_url
+        // https://www.tiny.cloud/docs-4x/configure/editor-appearance/#theme_url
         $theme = $this->getTheme();
         if (!Director::is_absolute_url($theme)) {
             $theme = Controller::join_links($tinyMCEBaseURL, "themes/{$theme}/theme.min.js");
         }
         $settings['theme_url'] = $theme;
 
+        $this->initImageSizePresets($settings);
+
         // Send back
         return $settings;
     }
 
     /**
-     * Get location of all editor.css files
+     * Initialise the image preset on the settings array. This is a custom configuration option that asset-admin reads
+     * to provide some preset image sizes.
+     * @param array $settings
+     */
+    private function initImageSizePresets(array &$settings): void
+    {
+        if (empty($settings['image_size_presets'])) {
+            $settings['image_size_presets'] = self::config()->get('image_size_presets');
+        }
+
+        foreach ($settings['image_size_presets'] as &$preset) {
+            if (isset($preset['width'])) {
+                $preset['width'] = (int) $preset['width'];
+            }
+
+            if (isset($preset['i18n'])) {
+                $preset['text'] = _t(
+                    $preset['i18n'],
+                    isset($preset['text']) ? $preset['text'] : ''
+                );
+            } elseif (empty($preset['text']) && isset($preset['width'])) {
+                $preset['text'] = _t(
+                    self::class . '.PIXEL_WIDTH',
+                    '{width} pixels',
+                    $preset
+                );
+            }
+        }
+    }
+
+    /**
+     * Get location of all editor.css files.
+     * All resource specifiers are resolved to urls.
      *
      * @return array
      */
     protected function getEditorCSS()
     {
-        $editor = array();
+        $editor = [];
+        $resourceLoader = ModuleResourceLoader::singleton();
+        foreach ($this->getContentCSS() as $contentCSS) {
+            $editor[] = $resourceLoader->resolveURL($contentCSS);
+        }
+        return $editor;
+    }
+
+    /**
+     * Get list of resource paths to css files.
+     *
+     * Will default to `editor_css` config, as well as any themed `editor.css` files.
+     * Use setContentCSS() to override.
+     *
+     * @return string[]
+     */
+    public function getContentCSS()
+    {
+        // Prioritise instance specific content
+        if (isset($this->contentCSS)) {
+            return $this->contentCSS;
+        }
 
         // Add standard editor.css
+        $editor = [];
         $editorCSSFiles = $this->config()->get('editor_css');
         if ($editorCSSFiles) {
             foreach ($editorCSSFiles as $editorCSS) {
-                $path = ModuleResourceLoader::singleton()
-                    ->resolveURL($editorCSS);
-                $editor[] = Director::absoluteURL($path);
+                $editor[] = $editorCSS;
             }
         }
 
@@ -643,10 +757,25 @@ class TinyMCEConfig extends HTMLEditorConfig
         $themes = HTMLEditorConfig::getThemes() ?: SSViewer::get_themes();
         $themedEditor = ThemeResourceLoader::inst()->findThemedCSS('editor', $themes);
         if ($themedEditor) {
-            $editor[] = Director::absoluteURL($themedEditor);
+            $editor[] = $themedEditor;
         }
-
         return $editor;
+    }
+
+    /**
+     * Set explicit set of CSS resources to use for `content_css` option.
+     *
+     * Note: If merging with default paths, you should call getContentCSS() and merge
+     * prior to assignment.
+     *
+     * @param string[] $css Array of resource paths. Supports module prefix,
+     * e.g. `silverstripe/admin:client/dist/styles/editor.css`
+     * @return $this
+     */
+    public function setContentCSS($css)
+    {
+        $this->contentCSS = $css;
+        return $this;
     }
 
     /**
@@ -670,6 +799,12 @@ class TinyMCEConfig extends HTMLEditorConfig
         Requirements::javascript($this->getScriptURL());
     }
 
+    public function getConfigSchemaData()
+    {
+        $data = parent::getConfigSchemaData();
+        $data['editorjs'] = $this->getScriptURL();
+        return $data;
+    }
 
     /**
      * Get the current tinyMCE language
@@ -740,21 +875,51 @@ class TinyMCEConfig extends HTMLEditorConfig
     }
 
     /**
-     * @deprecated 4.0..5.0
+     * @deprecated 4.0.1 Use getTinyMCEResourcePath() instead
      */
     public function getTinyMCEPath()
     {
-        Deprecation::notice('5.0', 'use getTinyMCEResourcePath instead');
+        Deprecation::notice('4.0.1', 'Use getTinyMCEResourcePath() instead');
         return $this->getTinyMCEResourcePath();
     }
 
     /**
      * @return Module
-     * @deprecated 4.0..5.0
+     * @deprecated 4.0.1 Set base_dir or editor_css config instead
      */
     protected function getAdminModule()
     {
-        Deprecation::notice('5.0', 'Set base_dir or editor_css config instead');
+        Deprecation::notice('4.0.1', 'Set base_dir or editor_css config instead');
         return ModuleLoader::getModule('silverstripe/admin');
+    }
+
+
+    /**
+     * Sets the upload folder name used by the insert media dialog
+     *
+     * @param string $folderName
+     * @return $this
+     */
+    public function setFolderName(string $folderName): self
+    {
+        $folder = Folder::find_or_make($folderName);
+        $folderID = $folder ? $folder->ID : null;
+        $this->setOption('upload_folder_id', $folderID);
+        return $this;
+    }
+
+    public function provideI18nEntities()
+    {
+        $entities = [
+            self::class . '.PIXEL_WIDTH' => '{width} pixels',
+        ];
+        foreach (self::config()->get('image_size_presets') as $preset) {
+            if (empty($preset['i18n']) || empty($preset['text'])) {
+                continue;
+            }
+            $entities[$preset['i18n']] = $preset['text'];
+        }
+
+        return $entities;
     }
 }

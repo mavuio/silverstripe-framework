@@ -81,10 +81,10 @@ class ViewableDataTest extends SapphireTest
     {
         $viewableData    = new ViewableDataTest\Castable();
         $newViewableData = $viewableData->customise(
-            array (
+            [
             'test'         => 'overwritten',
             'alwaysCasted' => 'overwritten'
-            )
+             ]
         );
 
         $this->assertEquals('test', $viewableData->XML_val('test'));
@@ -114,7 +114,7 @@ class ViewableDataTest extends SapphireTest
 
     public function testDefaultValueWrapping()
     {
-        $data = new ArrayData(array('Title' => 'SomeTitleValue'));
+        $data = new ArrayData(['Title' => 'SomeTitleValue']);
         // this results in a cached raw string in ViewableData:
         $this->assertTrue($data->hasValue('Title'));
         $this->assertFalse($data->hasValue('SomethingElse'));
@@ -128,12 +128,12 @@ class ViewableDataTest extends SapphireTest
 
     public function testCastingClass()
     {
-        $expected = array(
+        $expected = [
             //'NonExistant'   => null,
             'Field'         => 'CastingType',
             'Argument'      => 'ArgumentType',
             'ArrayArgument' => 'ArrayArgumentType'
-        );
+        ];
         $obj = new ViewableDataTest\CastingClass();
 
         foreach ($expected as $field => $class) {
@@ -215,7 +215,7 @@ class ViewableDataTest extends SapphireTest
         SSViewer::set_themes($themes);
 
         $data = new ViewableData();
-        $this->assertContains(
+        $this->assertStringContainsString(
             'tests/php/View/ViewableDataTest/testtheme',
             $data->ThemeDir()
         );

@@ -52,7 +52,7 @@ class ArrayLib
             return [];
         }
 
-        $result = array();
+        $result = [];
 
         foreach ($arr as $columnName => $column) {
             foreach ($column as $rowName => $cell) {
@@ -71,32 +71,18 @@ class ArrayLib
      */
     public static function valuekey($arr)
     {
-        return array_combine($arr, $arr);
+        return array_combine($arr ?? [], $arr ?? []);
     }
 
     /**
-     * @todo Improve documentation
+     * Flattens a multi-dimensional array to a one level array without preserving the keys
      *
-     * @param array $arr
+     * @param array $array
      * @return array
      */
-    public static function array_values_recursive($arr)
+    public static function array_values_recursive($array)
     {
-        $lst = array();
-
-        foreach (array_keys($arr) as $k) {
-            $v = $arr[$k];
-            if (is_scalar($v)) {
-                $lst[] = $v;
-            } elseif (is_array($v)) {
-                $lst = array_merge(
-                    $lst,
-                    self::array_values_recursive($v)
-                );
-            }
-        }
-
-        return $lst;
+        return self::flatten($array, false);
     }
 
     /**
@@ -111,7 +97,7 @@ class ArrayLib
     public static function filter_keys($arr, $keys)
     {
         foreach ($arr as $key => $v) {
-            if (!in_array($key, $keys)) {
+            if (!in_array($key, $keys ?? [])) {
                 unset($arr[$key]);
             }
         }
@@ -123,25 +109,19 @@ class ArrayLib
      * Determines if an array is associative by checking for existing keys via
      * array_key_exists().
      *
-     * @see http://nz.php.net/manual/en/function.is-array.php#76188
+     * @see http://nz.php.net/manual/en/function.is-array.php#121692
      *
-     * @param array $arr
+     * @param array $array
      *
      * @return boolean
      */
-    public static function is_associative($arr)
+    public static function is_associative($array)
     {
-        if (is_array($arr) && !empty($arr)) {
-            for ($iterator = count($arr) - 1; $iterator; $iterator--) {
-                if (!array_key_exists($iterator, $arr)) {
-                    return true;
-                }
-            }
+        $isAssociative = !empty($array)
+            && is_array($array)
+            && ($array !== array_values($array ?? []));
 
-            return !array_key_exists(0, $arr);
-        }
-
-        return false;
+        return $isAssociative;
     }
 
     /**
@@ -162,7 +142,7 @@ class ArrayLib
             return false;
         }
 
-        if (in_array($needle, $haystack, $strict)) {
+        if (in_array($needle, $haystack ?? [], $strict ?? false)) {
             return true;
         } else {
             foreach ($haystack as $obj) {
@@ -190,7 +170,7 @@ class ArrayLib
             return is_array($v) ? ArrayLib::array_map_recursive($f, $v) : call_user_func($f, $v);
         };
 
-        return array_map($applyOrRecurse, $array);
+        return array_map($applyOrRecurse, $array ?? []);
     }
 
     /**
@@ -208,9 +188,9 @@ class ArrayLib
     public static function array_merge_recursive($array)
     {
         $arrays = func_get_args();
-        $merged = array();
+        $merged = [];
 
-        if (count($arrays) == 1) {
+        if (count($arrays ?? []) == 1) {
             return $array;
         }
 
@@ -230,7 +210,7 @@ class ArrayLib
             }
 
             foreach ($array as $key => $value) {
-                if (is_array($value) && array_key_exists($key, $merged) && is_array($merged[$key])) {
+                if (is_array($value) && array_key_exists($key, $merged ?? []) && is_array($merged[$key])) {
                     $merged[$key] = ArrayLib::array_merge_recursive($merged[$key], $value);
                 } else {
                     $merged[$key] = $value;
@@ -247,21 +227,23 @@ class ArrayLib
      * @param array $array
      * @param boolean $preserveKeys
      * @param array $out
+     *
      * @return array
      */
-    public static function flatten($array, $preserveKeys = true, &$out = array())
+    public static function flatten($array, $preserveKeys = true, &$out = [])
     {
-        foreach ($array as $key => $child) {
-            if (is_array($child)) {
-                $out = self::flatten($child, $preserveKeys, $out);
-            } else {
-                if ($preserveKeys) {
-                    $out[$key] = $child;
+        array_walk_recursive(
+            $array,
+            function ($value, $key) use (&$out, $preserveKeys) {
+                if (!is_scalar($value)) {
+                    // Do nothing
+                } elseif ($preserveKeys) {
+                    $out[$key] = $value;
                 } else {
-                    $out[] = $child;
+                    $out[] = $value;
                 }
             }
-        }
+        );
 
         return $out;
     }
@@ -280,11 +262,11 @@ class ArrayLib
         // Keyed by already-iterated items
         $iterated = [];
         // Get all items not yet iterated
-        while ($items = array_diff_key($list, $iterated)) {
+        while ($items = array_diff_key($list ?? [], $iterated)) {
             // Yield all results
             foreach ($items as $key => $value) {
                 // Skip items removed by a prior step
-                if (array_key_exists($key, $list)) {
+                if (array_key_exists($key, $list ?? [])) {
                     // Ensure we yield from the source list
                     $iterated[$key] = true;
                     yield $key => $list[$key];

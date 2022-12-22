@@ -9,6 +9,8 @@ use BadMethodCallException;
  */
 class InjectorLoader
 {
+    public const NO_MANIFESTS_AVAILABLE = 'No injector manifests available';
+
     /**
      * @internal
      * @var self
@@ -18,7 +20,7 @@ class InjectorLoader
     /**
      * @var Injector[] map of injector instances
      */
-    protected $manifests = array();
+    protected $manifests = [];
 
     /**
      * @return self
@@ -42,7 +44,7 @@ class InjectorLoader
             );
         }
         if (empty($this->manifests)) {
-            throw new BadMethodCallException("No injector manifests available");
+            throw new BadMethodCallException(self::NO_MANIFESTS_AVAILABLE);
         }
         return $this->manifests[count($this->manifests) - 1];
     }
@@ -82,7 +84,7 @@ class InjectorLoader
      */
     public function countManifests()
     {
-        return count($this->manifests);
+        return count($this->manifests ?? []);
     }
 
     /**

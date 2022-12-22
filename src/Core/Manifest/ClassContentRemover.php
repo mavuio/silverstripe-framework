@@ -6,7 +6,7 @@ namespace SilverStripe\Core\Manifest;
  * Class ClassContentRemover
  * @package SilverStripe\Core\Manifest
  *
- * A utility class to clean the contents of a PHP file containing classes.
+ * A utility class to clean the contents of a PHP file containing classes/interfaces/traits/enums.
  *
  * It removes any code with in `$cut_off_depth` number of curly braces.
  */
@@ -23,18 +23,18 @@ class ClassContentRemover
     {
 
         // Use PHP's built in method to strip comments and whitespace
-        $contents = php_strip_whitespace($filePath);
+        $contents = php_strip_whitespace($filePath ?? '');
 
-        if (!trim($contents)) {
+        if (!trim($contents ?? '')) {
             return $contents;
         }
 
-        if (!preg_match('/\b(?:class|interface|trait)/i', $contents)) {
+        if (!preg_match('/\b(?:class|interface|trait|enum)/i', $contents ?? '')) {
             return '';
         }
 
         // tokenize the file contents
-        $tokens = token_get_all($contents);
+        $tokens = token_get_all($contents ?? '');
         $cleanContents = '';
         $depth = 0;
         $startCounting = false;
@@ -50,7 +50,12 @@ class ClassContentRemover
             }
 
             // only count if we see a class/interface/trait keyword
-            if (!$startCounting && in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT])) {
+            $targetTokens = [T_CLASS, T_INTERFACE, T_TRAIT];
+            if (version_compare(phpversion(), '8.1.0', '>')) {
+                $targetTokens[] = T_ENUM;
+            }
+
+            if (!$startCounting && in_array($token[0], $targetTokens)) {
                 $startCounting = true;
             }
 
@@ -81,6 +86,6 @@ class ClassContentRemover
         }
 
         // return cleaned class
-        return trim($cleanContents);
+        return trim($cleanContents ?? '');
     }
 }

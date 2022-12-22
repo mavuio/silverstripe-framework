@@ -13,39 +13,14 @@ class Backtrace
     use Configurable;
 
     /**
-     * @var array Replaces all arguments with a '<filtered>' string,
+     * Replaces all arguments with a '<filtered>' string,
      * mostly for security reasons. Use string values for global functions,
      * and array notation for class methods.
      * PHP's debug_backtrace() doesn't allow to inspect the argument names,
      * so all arguments of the provided functions will be filtered out.
+     * @var array
      */
-    private static $ignore_function_args = array(
-        'mysql_connect',
-        'mssql_connect',
-        'pg_connect',
-        array('PDO', '__construct'),
-        array('mysqli', 'mysqli'),
-        array('mysqli', 'select_db'),
-        array('SilverStripe\\ORM\\DB', 'connect'),
-        array('SilverStripe\\Security\\Security', 'check_default_admin'),
-        array('SilverStripe\\Security\\Security', 'encrypt_password'),
-        array('SilverStripe\\Security\\Security', 'setDefaultAdmin'),
-        array('SilverStripe\\ORM\\DB', 'createDatabase'),
-        array('SilverStripe\\Security\\Member', 'checkPassword'),
-        array('SilverStripe\\Security\\Member', 'changePassword'),
-        array('SilverStripe\\Security\\MemberPassword', 'checkPassword'),
-        array('SilverStripe\\Security\\PasswordValidator', 'validate'),
-        array('SilverStripe\\Security\\PasswordEncryptor_PHPHash', 'encrypt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_PHPHash', 'salt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_LegacyPHPHash', 'encrypt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_LegacyPHPHash', 'salt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_MySQLPassword', 'encrypt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_MySQLPassword', 'salt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_MySQLOldPassword', 'encrypt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_MySQLOldPassword', 'salt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_Blowfish', 'encrypt'),
-        array('SilverStripe\\Security\\PasswordEncryptor_Blowfish', 'salt'),
-    );
+    private static $ignore_function_args = [];
 
     /**
      * Return debug_backtrace() results with functions filtered
@@ -69,7 +44,7 @@ class Backtrace
      */
     public static function filter_backtrace($bt, $ignoredFunctions = null)
     {
-        $defaultIgnoredFunctions = array(
+        $defaultIgnoredFunctions = [
             'SilverStripe\\Logging\\Log::log',
             'SilverStripe\\Dev\\Backtrace::backtrace',
             'SilverStripe\\Dev\\Backtrace::filtered_backtrace',
@@ -87,7 +62,7 @@ class Backtrace
             'SilverStripe\\Dev\\Debug::showError',
             'SilverStripe\\Dev\\Debug::backtrace',
             'exceptionHandler'
-        );
+        ];
 
         if ($ignoredFunctions) {
             foreach ($ignoredFunctions as $ignoredFunction) {
@@ -95,7 +70,7 @@ class Backtrace
             }
         }
 
-        while ($bt && in_array(self::full_func_name($bt[0]), $defaultIgnoredFunctions)) {
+        while ($bt && in_array(self::full_func_name($bt[0]), $defaultIgnoredFunctions ?? [])) {
             array_shift($bt);
         }
 
@@ -104,19 +79,23 @@ class Backtrace
         // Filter out arguments
         foreach ($bt as $i => $frame) {
             $match = false;
-            if (!empty($bt[$i]['class'])) {
+            if (!empty($frame['class'])) {
                 foreach ($ignoredArgs as $fnSpec) {
-                    if (is_array($fnSpec) && $bt[$i]['class'] == $fnSpec[0] && $bt[$i]['function'] == $fnSpec[1]) {
+                    if (is_array($fnSpec)
+                        && self::matchesFilterableClass($frame['class'], $fnSpec[0])
+                        && $frame['function'] == $fnSpec[1]
+                    ) {
                         $match = true;
+                        break;
                     }
                 }
             } else {
-                if (in_array($bt[$i]['function'], $ignoredArgs)) {
+                if (in_array($frame['function'], $ignoredArgs ?? [])) {
                     $match = true;
                 }
             }
             if ($match) {
-                foreach ($bt[$i]['args'] as $j => $arg) {
+                foreach ($bt[$i]['args'] ?? [] as $j => $arg) {
                     $bt[$i]['args'][$j] = '<filtered>';
                 }
             }
@@ -168,17 +147,17 @@ class Backtrace
         }
 
         if ($showArgs && isset($item['args'])) {
-            $args = array();
+            $args = [];
             foreach ($item['args'] as $arg) {
                 if (!is_object($arg) || method_exists($arg, '__toString')) {
                     $sarg = is_array($arg) ? 'Array' : strval($arg);
-                    $args[] = (strlen($sarg) > $argCharLimit) ? substr($sarg, 0, $argCharLimit) . '...' : $sarg;
+                    $args[] = (strlen($sarg ?? '') > $argCharLimit) ? substr($sarg, 0, $argCharLimit) . '...' : $sarg;
                 } else {
                     $args[] = get_class($arg);
                 }
             }
 
-            $funcName .= "(" . implode(", ", $args)  .")";
+            $funcName .= "(" . implode(", ", $args) . ")";
         }
 
         return $funcName;
@@ -203,7 +182,7 @@ class Backtrace
             if ($plainText) {
                 $result .= self::full_func_name($item, true) . "\n";
                 if (isset($item['line']) && isset($item['file'])) {
-                    $result .= basename($item['file']) . ":$item[line]\n";
+                    $result .= basename($item['file'] ?? '') . ":$item[line]\n";
                 }
                 $result .= "\n";
             } else {
@@ -212,7 +191,7 @@ class Backtrace
                 } else {
                     $name = self::full_func_name($item, true);
                 }
-                $result .= "<li><b>" . htmlentities($name, ENT_COMPAT, 'UTF-8') . "</b>\n<br />\n";
+                $result .= "<li><b>" . htmlentities($name ?? '', ENT_COMPAT, 'UTF-8') . "</b>\n<br />\n";
                 $result .=  isset($item['file']) ? htmlentities(basename($item['file']), ENT_COMPAT, 'UTF-8') : '';
                 $result .= isset($item['line']) ? ":$item[line]" : '';
                 $result .= "</li>\n";
@@ -222,5 +201,14 @@ class Backtrace
             $result .= '</ul>';
         }
         return $result;
+    }
+
+    /**
+     * Checks if the filterable class is wildcard, of if the class name is the filterable class, or a subclass of it,
+     * or implements it.
+     */
+    private static function matchesFilterableClass(string $className, string $filterableClass): bool
+    {
+        return $filterableClass === '*' || $className === $filterableClass || is_subclass_of($className, $filterableClass);
     }
 }

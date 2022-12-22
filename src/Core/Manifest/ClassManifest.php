@@ -8,8 +8,10 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\Parser;
 use PhpParser\ParserFactory;
+use PhpParser\ErrorHandler\ErrorHandler;
 use Psr\SimpleCache\CacheInterface;
 use SilverStripe\Core\Cache\CacheFactory;
+use SilverStripe\Dev\Deprecation;
 use SilverStripe\Dev\TestOnly;
 
 /**
@@ -66,6 +68,8 @@ class ClassManifest
         'implementors',
         'traits',
         'traitNames',
+        'enums',
+        'enumNames',
     ];
 
     /**
@@ -73,7 +77,7 @@ class ClassManifest
      *
      * @var array
      */
-    protected $classes = array();
+    protected $classes = [];
 
     /**
      * Map of lowercase class names to case-correct names
@@ -90,7 +94,7 @@ class ClassManifest
      *
      * @var array
      */
-    protected $roots = array();
+    protected $roots = [];
 
     /**
      * List of direct children for any class.
@@ -101,7 +105,7 @@ class ClassManifest
      *
      * @var array
      */
-    protected $children = array();
+    protected $children = [];
 
     /**
      * List of descendents for any class (direct + indirect children)
@@ -110,7 +114,7 @@ class ClassManifest
      *
      * @var array
      */
-    protected $descendants = array();
+    protected $descendants = [];
 
     /**
      * Map of lowercase interface name to path those files
@@ -133,7 +137,7 @@ class ClassManifest
      *
      * @var array
      */
-    protected $implementors = array();
+    protected $implementors = [];
 
     /**
      * Map of lowercase trait names to paths
@@ -148,6 +152,20 @@ class ClassManifest
      * @var array
      */
     protected $traitNames = [];
+
+    /**
+     * Map of lowercase enum names to paths
+     *
+     * @var array
+     */
+    protected $enums = [];
+
+    /**
+     * Map of lowercase enum names to proper case
+     *
+     * @var array
+     */
+    protected $enumNames = [];
 
     /**
      * PHP Parser for parsing found files
@@ -167,6 +185,14 @@ class ClassManifest
     private $visitor;
 
     /**
+     * Indicates whether the cache has been
+     * regenerated in the current process
+     *
+     * @var bool
+     */
+    private $cacheRegenerated = false;
+
+    /**
      * Constructs and initialises a new class manifest, either loading the data
      * from the cache or re-scanning for classes.
      *
@@ -180,21 +206,86 @@ class ClassManifest
         $this->cacheKey = 'manifest';
     }
 
+    private function buildCache($includeTests = false)
+    {
+        if ($this->cache) {
+            return $this->cache;
+        } elseif (!$this->cacheFactory) {
+            return null;
+        } else {
+            return $this->cacheFactory->create(
+                CacheInterface::class . '.classmanifest',
+                ['namespace' => 'classmanifest' . ($includeTests ? '_tests' : '')]
+            );
+        }
+    }
+
+    /**
+     * @internal This method is not a part of public API and will be deleted without a deprecation warning
+     *
+     * @return int
+     */
+    public function getManifestTimestamp($includeTests = false)
+    {
+        $cache = $this->buildCache($includeTests);
+
+        if (!$cache) {
+            return null;
+        }
+
+        return $cache->get('generated_at');
+    }
+
+    /**
+     * @internal This method is not a part of public API and will be deleted without a deprecation warning
+     */
+    public function scheduleFlush($includeTests = false)
+    {
+        $cache = $this->buildCache($includeTests);
+
+        if (!$cache) {
+            return null;
+        }
+
+        $cache->set('regenerate', true);
+    }
+
+    /**
+     * @internal This method is not a part of public API and will be deleted without a deprecation warning
+     */
+    public function isFlushScheduled($includeTests = false)
+    {
+        $cache = $this->buildCache($includeTests);
+
+        if (!$cache) {
+            return null;
+        }
+
+        return $cache->get('regenerate');
+    }
+
+    /**
+     * @internal This method is not a part of public API and will be deleted without a deprecation warning
+     */
+    public function isFlushed()
+    {
+        return $this->cacheRegenerated;
+    }
+
     /**
      * Initialise the class manifest
      *
      * @param bool $includeTests
      * @param bool $forceRegen
+     * @param string[] $ignoredCIConfigs
      */
-    public function init($includeTests = false, $forceRegen = false)
+    public function init($includeTests = false, $forceRegen = false, array $ignoredCIConfigs = [])
     {
-        // build cache from factory
-        if ($this->cacheFactory) {
-            $this->cache = $this->cacheFactory->create(
-                CacheInterface::class . '.classmanifest',
-                ['namespace' => 'classmanifest' . ($includeTests ? '_tests' : '')]
-            );
+        if (!empty($ignoredCIConfigs)) {
+            Deprecation::notice('5.0.0', 'The $ignoredCIConfigs parameter will be removed in CMS 5');
         }
+
+        $this->cache = $this->buildCache($includeTests);
 
         // Check if cache is safe to use
         if (!$forceRegen
@@ -206,7 +297,7 @@ class ClassManifest
         }
 
         // Build
-        $this->regenerate($includeTests);
+        $this->regenerate($includeTests, $ignoredCIConfigs);
     }
 
     /**
@@ -262,13 +353,14 @@ class ClassManifest
      */
     public function getItemPath($name)
     {
-        $lowerName = strtolower($name);
+        $lowerName = strtolower($name ?? '');
         foreach ([
-             $this->classes,
-             $this->interfaces,
-             $this->traits,
-         ] as $source) {
-            if (isset($source[$lowerName]) && file_exists($source[$lowerName])) {
+                     $this->classes,
+                     $this->interfaces,
+                     $this->traits,
+                     $this->enums,
+                 ] as $source) {
+            if (isset($source[$lowerName]) && file_exists($source[$lowerName] ?? '')) {
                 return $source[$lowerName];
             }
         }
@@ -283,12 +375,13 @@ class ClassManifest
      */
     public function getItemName($name)
     {
-        $lowerName = strtolower($name);
+        $lowerName = strtolower($name ?? '');
         foreach ([
-             $this->classNames,
-             $this->interfaceNames,
-             $this->traitNames,
-         ] as $source) {
+                     $this->classNames,
+                     $this->interfaceNames,
+                     $this->traitNames,
+                     $this->enumNames,
+                 ] as $source) {
             if (isset($source[$lowerName])) {
                 return $source[$lowerName];
             }
@@ -337,6 +430,26 @@ class ClassManifest
     }
 
     /**
+     * Returns a map of lowercased enum names to file paths.
+     *
+     * @return array
+     */
+    public function getEnums()
+    {
+        return $this->enums;
+    }
+
+    /**
+     * Returns a map of lowercase enum names to proper enum names in the manifest
+     *
+     * @return array
+     */
+    public function getEnumNames()
+    {
+        return $this->enumNames;
+    }
+
+    /**
      * Returns an array of all the descendant data.
      *
      * @return array
@@ -359,8 +472,8 @@ class ClassManifest
             $class = get_class($class);
         }
 
-        $lClass = strtolower($class);
-        if (array_key_exists($lClass, $this->descendants)) {
+        $lClass = strtolower($class ?? '');
+        if (array_key_exists($lClass, $this->descendants ?? [])) {
             return $this->descendants[$lClass];
         }
 
@@ -407,11 +520,11 @@ class ClassManifest
      */
     public function getImplementorsOf($interface)
     {
-        $lowerInterface = strtolower($interface);
-        if (array_key_exists($lowerInterface, $this->implementors)) {
+        $lowerInterface = strtolower($interface ?? '');
+        if (array_key_exists($lowerInterface, $this->implementors ?? [])) {
             return $this->implementors[$lowerInterface];
         } else {
-            return array();
+            return [];
         }
     }
 
@@ -431,23 +544,29 @@ class ClassManifest
      * Completely regenerates the manifest file.
      *
      * @param bool $includeTests
+     * @param string[] $ignoredCIConfigs
      */
-    public function regenerate($includeTests)
+    public function regenerate($includeTests, array $ignoredCIConfigs = [])
     {
+        if (!empty($ignoredCIConfigs)) {
+            Deprecation::notice('5.0.0', 'The $ignoredCIConfigs parameter will be removed in CMS 5');
+        }
+
         // Reset the manifest so stale info doesn't cause errors.
         $this->loadState([]);
         $this->roots = [];
         $this->children = [];
 
         $finder = new ManifestFileFinder();
-        $finder->setOptions(array(
+        $finder->setOptions([
             'name_regex' => '/^[^_].*\\.php$/',
-            'ignore_files' => array('index.php', 'cli-script.php'),
+            'ignore_files' => ['index.php', 'cli-script.php'],
             'ignore_tests' => !$includeTests,
-            'file_callback' => function ($basename, $pathname, $depth) use ($includeTests, $finder) {
+            'ignored_ci_configs' => $ignoredCIConfigs,
+            'file_callback' => function ($basename, $pathname, $depth) use ($includeTests) {
                 $this->handleFile($basename, $pathname, $includeTests);
             },
-        ));
+        ]);
         $finder->find($this->base);
 
         foreach ($this->roots as $root) {
@@ -457,7 +576,11 @@ class ClassManifest
         if ($this->cache) {
             $data = $this->getState();
             $this->cache->set($this->cacheKey, $data);
+            $this->cache->set('generated_at', time());
+            $this->cache->delete('regenerate');
         }
+
+        $this->cacheRegenerated = true;
     }
 
     /**
@@ -474,7 +597,7 @@ class ClassManifest
         // files will have changed and TokenisedRegularExpression is quite
         // slow. A combination of the file name and file contents hash are used,
         // since just using the datetime lead to problems with upgrading.
-        $key = preg_replace('/[^a-zA-Z0-9_]/', '_', $basename) . '_' . md5_file($pathname);
+        $key = preg_replace('/[^a-zA-Z0-9_]/', '_', $basename ?? '') . '_' . md5_file($pathname ?? '');
 
         // Attempt to load from cache
         // Note: $classes, $interfaces and $traits arrays have correct-case keys, not lowercase
@@ -486,27 +609,31 @@ class ClassManifest
             $classes = $data['classes'];
             $interfaces = $data['interfaces'];
             $traits = $data['traits'];
+            $enums = $data['enums'];
         } else {
             $changed = true;
             // Build from php file parser
             $fileContents = ClassContentRemover::remove_class_content($pathname);
+            // Not injectable, error handling is an implementation detail.
+            $errorHandler = new ClassManifestErrorHandler($pathname);
             try {
-                $stmts = $this->getParser()->parse($fileContents);
+                $stmts = $this->getParser()->parse($fileContents, $errorHandler);
             } catch (Error $e) {
                 // if our mangled contents breaks, try again with the proper file contents
-                $stmts = $this->getParser()->parse(file_get_contents($pathname));
+                $stmts = $this->getParser()->parse(file_get_contents($pathname), $errorHandler);
             }
             $this->getTraverser()->traverse($stmts);
 
             $classes = $this->getVisitor()->getClasses();
             $interfaces = $this->getVisitor()->getInterfaces();
             $traits = $this->getVisitor()->getTraits();
+            $enums = $this->getVisitor()->getEnums();
         }
 
         // Merge raw class data into global list
         foreach ($classes as $className => $classInfo) {
-            $lowerClassName = strtolower($className);
-            if (array_key_exists($lowerClassName, $this->classes)) {
+            $lowerClassName = strtolower($className ?? '');
+            if (array_key_exists($lowerClassName, $this->classes ?? [])) {
                 throw new Exception(sprintf(
                     'There are two files containing the "%s" class: "%s" and "%s"',
                     $className,
@@ -516,8 +643,8 @@ class ClassManifest
             }
 
             // Skip if implements TestOnly, but doesn't include tests
-            $lowerInterfaces = array_map('strtolower', $classInfo['interfaces']);
-            if (!$includeTests && in_array(strtolower(TestOnly::class), $lowerInterfaces)) {
+            $lowerInterfaces = array_map('strtolower', $classInfo['interfaces'] ?? []);
+            if (!$includeTests && in_array(strtolower(TestOnly::class), $lowerInterfaces ?? [])) {
                 $changed = true;
                 unset($classes[$className]);
                 continue;
@@ -529,7 +656,7 @@ class ClassManifest
             // Add to children
             if ($classInfo['extends']) {
                 foreach ($classInfo['extends'] as $ancestor) {
-                    $lowerAncestor = strtolower($ancestor);
+                    $lowerAncestor = strtolower($ancestor ?? '');
                     if (!isset($this->children[$lowerAncestor])) {
                         $this->children[$lowerAncestor] = [];
                     }
@@ -541,7 +668,7 @@ class ClassManifest
 
             // Load interfaces
             foreach ($classInfo['interfaces'] as $interface) {
-                $lowerInterface = strtolower($interface);
+                $lowerInterface = strtolower($interface ?? '');
                 if (!isset($this->implementors[$lowerInterface])) {
                     $this->implementors[$lowerInterface] = [];
                 }
@@ -551,25 +678,32 @@ class ClassManifest
 
         // Merge all found interfaces into list
         foreach ($interfaces as $interfaceName => $interfaceInfo) {
-            $lowerInterface = strtolower($interfaceName);
+            $lowerInterface = strtolower($interfaceName ?? '');
             $this->interfaces[$lowerInterface] = $pathname;
             $this->interfaceNames[$lowerInterface] = $interfaceName;
         }
 
         // Merge all traits
         foreach ($traits as $traitName => $traitInfo) {
-            $lowerTrait = strtolower($traitName);
+            $lowerTrait = strtolower($traitName ?? '');
             $this->traits[$lowerTrait] = $pathname;
             $this->traitNames[$lowerTrait] = $traitName;
         }
 
+        // Merge all enums
+        foreach ($enums as $enumName => $enumInfo) {
+            $lowerEnum = strtolower($enumName ?? '');
+            $this->enums[$lowerEnum] = $pathname;
+            $this->enumNames[$lowerEnum] = $enumName;
+        }
+
         // Save back to cache if configured
         if ($changed && $this->cache) {
-            $cache = array(
+            $cache = [
                 'classes' => $classes,
                 'interfaces' => $interfaces,
                 'traits' => $traits,
-            );
+            ];
             $this->cache->set($key, $cache);
         }
     }
@@ -584,7 +718,7 @@ class ClassManifest
     protected function coalesceDescendants($class)
     {
         // Reset descendents to immediate children initially
-        $lowerClass = strtolower($class);
+        $lowerClass = strtolower($class ?? '');
         if (empty($this->children[$lowerClass])) {
             return [];
         }
@@ -647,7 +781,7 @@ class ClassManifest
         if (!$data || !is_array($data)) {
             return false;
         }
-        foreach (['classes', 'interfaces', 'traits'] as $key) {
+        foreach (['classes', 'interfaces', 'traits', 'enums'] as $key) {
             // Must be set
             if (!isset($data[$key])) {
                 return false;
@@ -658,7 +792,7 @@ class ClassManifest
             }
             // Detect legacy cache keys (non-associative)
             $array = $data[$key];
-            if (!empty($array) && is_numeric(key($array))) {
+            if (!empty($array) && is_numeric(key($array ?? []))) {
                 return false;
             }
         }

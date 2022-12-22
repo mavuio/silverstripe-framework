@@ -2,6 +2,7 @@
 
 namespace SilverStripe\Forms;
 
+use SilverStripe\Dev\Deprecation;
 use Exception;
 use InvalidArgumentException;
 use SilverStripe\Assets\Folder;
@@ -31,13 +32,15 @@ use SilverStripe\ORM\Hierarchy\MarkedSet;
  * <b>Usage</b>.
  *
  * <code>
+ * use SilverStripe\CMS\Model\SiteTree;
+ * ...
  * static $has_one = array(
- *   'RightContent' => 'SiteTree'
+ *   'RightContent' => SiteTree::class
  * );
  *
  * function getCMSFields() {
  * ...
- * $treedropdownfield = new TreeDropdownField("RightContentID", "Choose a page to show on the right:", "SiteTree");
+ * $treedropdownfield = new TreeDropdownField("RightContentID", "Choose a page to show on the right:", SiteTree::class);
  * ..
  * }
  * </code>
@@ -60,13 +63,13 @@ class TreeDropdownField extends FormField
     /** @skipUpgrade */
     protected $schemaComponent = 'TreeDropdownField';
 
-    private static $url_handlers = array(
+    private static $url_handlers = [
         '$Action!/$ID' => '$Action'
-    );
+    ];
 
-    private static $allowed_actions = array(
+    private static $allowed_actions = [
         'tree'
-    );
+    ];
 
     /**
      * @config
@@ -240,7 +243,7 @@ class TreeDropdownField extends FormField
         $this->setShowSearch($showSearch);
 
         // Extra settings for Folders
-        if (strcasecmp($sourceObject, Folder::class) === 0) {
+        if (strcasecmp($sourceObject ?? '', Folder::class) === 0) {
             $this->setChildrenMethod('ChildFolders');
             $this->setNumChildrenMethod('numChildFolders');
         }
@@ -425,7 +428,7 @@ class TreeDropdownField extends FormField
 
     public function extraClass()
     {
-        return implode(' ', array(parent::extraClass(), ($this->getShowSearch() ? "searchable" : null)));
+        return implode(' ', [parent::extraClass(), ($this->getShowSearch() ? "searchable" : null)]);
     }
 
     /**
@@ -453,6 +456,14 @@ class TreeDropdownField extends FormField
         /** @var DataObject|Hierarchy $obj */
         $obj = null;
         $sourceObject = $this->getSourceObject();
+
+        // Precache numChildren count if possible.
+        if ($this->getNumChildrenMethod() == 'numChildren') {
+            // We're not calling `Hierarchy::prepopulateTreeDataCache()` because we're not customising results based
+            // on version or Fluent locales. So there would be no performance gain from additional caching.
+            Hierarchy::prepopulate_numchildren_cache($sourceObject);
+        }
+
         if ($id && !$request->requestVar('forceFullTree')) {
             $obj = DataObject::get_by_id($sourceObject, $id);
             $isSubTree = true;
@@ -491,9 +502,20 @@ class TreeDropdownField extends FormField
         // Begin marking
         $markingSet->markPartialTree();
 
+        // Explicitly mark our search results if necessary
+        foreach ($this->searchIds as $id => $marked) {
+            if ($marked) {
+                $object = $this->objectForKey($id);
+                if (!$object) {
+                    continue;
+                }
+                $markingSet->markToExpose($object);
+            }
+        }
+
         // Allow to pass values to be selected within the ajax request
         $value = $request->requestVar('forceValue') ?: $this->value;
-        if ($value && ($values = preg_split('/,\s*/', $value))) {
+        if ($value && ($values = preg_split('/,\s*/', $value ?? ''))) {
             foreach ($values as $value) {
                 if (!$value || $value == 'unchanged') {
                     continue;
@@ -583,12 +605,12 @@ class TreeDropdownField extends FormField
      */
     public function getAttributes()
     {
-        $attributes = array(
+        $attributes = [
             'class' => $this->extraClass(),
             'id' => $this->ID(),
             'data-schema' => json_encode($this->getSchemaData()),
             'data-state' => json_encode($this->getSchemaState()),
-        );
+        ];
 
         $attributes = array_merge($attributes, $this->attributes);
 
@@ -600,12 +622,13 @@ class TreeDropdownField extends FormField
     /**
      * HTML-encoded label for this node, including css classes and other markup.
      *
-     * @deprecated 4.0...5.0 Use setTitleField()
+     * @deprecated 4.0.1 Use setTitleField() instead
      * @param string $field
      * @return $this
      */
     public function setLabelField($field)
     {
+        Deprecation::notice('4.0.1', 'Use setTitleField() instead');
         $this->labelField = $field;
         return $this;
     }
@@ -613,11 +636,12 @@ class TreeDropdownField extends FormField
     /**
      * HTML-encoded label for this node, including css classes and other markup.
      *
-     * @deprecated 4.0...5.0 Use getTitleField()
+     * @deprecated 4.0.1 Use getTitleField() instead
      * @return string
      */
     public function getLabelField()
     {
+        Deprecation::notice('4.0.1', 'Use getTitleField() instead');
         return $this->labelField;
     }
 
@@ -654,7 +678,7 @@ class TreeDropdownField extends FormField
     }
 
     /**
-     * @return String
+     * @return string
      */
     public function getKeyField()
     {
@@ -700,10 +724,10 @@ class TreeDropdownField extends FormField
             $grandChildren = $child['children'];
             $contextString = implode('/', $parentTitles);
 
-            $child['contextString'] = ($contextString !== '') ? $contextString .'/' : '';
+            $child['contextString'] = ($contextString !== '') ? $contextString . '/' : '';
             unset($child['children']);
 
-            if (!$this->search || in_array($child['id'], $this->realSearchIds)) {
+            if (!$this->search || in_array($child['id'], $this->realSearchIds ?? [])) {
                 $output[] = $child;
             }
             $output = array_merge($output, $this->flattenChildrenArray($grandChildren, $childTitles));
@@ -739,8 +763,8 @@ class TreeDropdownField extends FormField
 
         while (!empty($parents)) {
             $items = DataObject::get($sourceObject)
-                ->filter("ID", array_keys($parents));
-            $parents = array();
+                ->filter("ID", array_keys($parents ?? []));
+            $parents = [];
 
             foreach ($items as $item) {
                 if ($item->ParentID) {
@@ -765,7 +789,7 @@ class TreeDropdownField extends FormField
         }
 
         $sourceObject = $this->getSourceObject();
-        $filters = array();
+        $filters = [];
         $sourceObjectInstance = DataObject::singleton($sourceObject);
         $candidates = array_unique([
             $this->getLabelField(),
@@ -793,10 +817,13 @@ class TreeDropdownField extends FormField
      * Get the object where the $keyField is equal to a certain value
      *
      * @param string|int $key
-     * @return DataObject
+     * @return DataObject|null
      */
     protected function objectForKey($key)
     {
+        if (!is_string($key) && !is_int($key)) {
+            return null;
+        }
         return DataObject::get($this->getSourceObject())
             ->filter($this->getKeyField(), $key)
             ->first();
@@ -847,7 +874,7 @@ class TreeDropdownField extends FormField
 
                 foreach ($ancestors as $parent) {
                     $title = $parent->obj($this->getTitleField())->getValue();
-                    $titlePath .= $title .'/';
+                    $titlePath .= $title . '/';
                 }
             }
             $data['data']['valueObject'] = [
@@ -882,6 +909,7 @@ class TreeDropdownField extends FormField
         $data['data'] = array_merge($data['data'], [
             'urlTree' => $this->Link('tree'),
             'showSearch' => $this->getShowSearch(),
+            'treeBaseId' => $this->getTreeBaseID(),
             'emptyString' => $this->getEmptyString(),
             'hasEmptyDefault' => $this->getHasEmptyDefault(),
             'multiple' => false,
@@ -934,8 +962,8 @@ class TreeDropdownField extends FormField
 
         $item = DataObject::singleton($this->getSourceObject());
         $emptyString = _t(
-            'SilverStripe\\Forms\\DropdownField.CHOOSE_MODEL',
-            '(Choose {name})',
+            'SilverStripe\\Forms\\DropdownField.SEARCH_OR_CHOOSE_MODEL',
+            '(Search or choose {name})',
             ['name' => $item->i18n_singular_name()]
         );
         return $emptyString;

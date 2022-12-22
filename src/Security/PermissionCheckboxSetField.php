@@ -26,7 +26,7 @@ class PermissionCheckboxSetField extends FormField
      * @var array Filter certain permission codes from the output.
      * Useful to simplify the interface
      */
-    protected $hiddenPermissions = array();
+    protected $hiddenPermissions = [];
 
     /**
      * @var SS_List
@@ -39,10 +39,10 @@ class PermissionCheckboxSetField extends FormField
     protected $source = null;
 
     /**
-     * @param String $name
-     * @param String $title
-     * @param String $managedClass
-     * @param String $filterField
+     * @param string $name
+     * @param string $title
+     * @param string $managedClass
+     * @param string $filterField
      * @param Group|SS_List $records One or more {@link Group} or {@link PermissionRole} records
      *  used to determine permission checkboxes.
      *  Caution: saveInto() can only be used with a single record, all inherited permissions will be marked readonly.
@@ -56,7 +56,7 @@ class PermissionCheckboxSetField extends FormField
         if ($records instanceof SS_List) {
             $this->records = $records;
         } elseif ($records instanceof Group) {
-            $this->records = new ArrayList(array($records));
+            $this->records = new ArrayList([$records]);
         } elseif ($records) {
             throw new InvalidArgumentException(
                 '$record should be either a Group record, or a SS_List of Group records'
@@ -89,10 +89,10 @@ class PermissionCheckboxSetField extends FormField
      * @param array $properties
      * @return string
      */
-    public function Field($properties = array())
+    public function Field($properties = [])
     {
-        $uninheritedCodes = array();
-        $inheritedCodes = array();
+        $uninheritedCodes = [];
+        $inheritedCodes = [];
         $records = ($this->records) ? $this->records : new ArrayList();
 
         // Get existing values from the form record (assuming the formfield name is a join field on the record)
@@ -112,12 +112,12 @@ class PermissionCheckboxSetField extends FormField
             $relationMethod = $this->name;
             foreach ($record->$relationMethod() as $permission) {
                 if (!isset($uninheritedCodes[$permission->Code])) {
-                    $uninheritedCodes[$permission->Code] = array();
+                    $uninheritedCodes[$permission->Code] = [];
                 }
                 $uninheritedCodes[$permission->Code][] = _t(
                     'SilverStripe\\Security\\PermissionCheckboxSetField.AssignedTo',
                     'assigned to "{title}"',
-                    array('title' => $record->dbObject('Title')->forTemplate())
+                    ['title' => $record->dbObject('Title')->forTemplate()]
                 );
             }
 
@@ -130,13 +130,13 @@ class PermissionCheckboxSetField extends FormField
                         /** @var PermissionRole $role */
                         foreach ($role->Codes() as $code) {
                             if (!isset($inheritedCodes[$code->Code])) {
-                                $inheritedCodes[$code->Code] = array();
+                                $inheritedCodes[$code->Code] = [];
                             }
                             $inheritedCodes[$code->Code][] = _t(
                                 'SilverStripe\\Security\\PermissionCheckboxSetField.FromRole',
                                 'inherited from role "{title}"',
                                 'A permission inherited from a certain permission role',
-                                array('title' => $role->dbObject('Title')->forTemplate())
+                                ['title' => $role->dbObject('Title')->forTemplate()]
                             );
                         }
                     }
@@ -153,16 +153,16 @@ class PermissionCheckboxSetField extends FormField
                             if ($role->Codes()) {
                                 foreach ($role->Codes() as $code) {
                                     if (!isset($inheritedCodes[$code->Code])) {
-                                        $inheritedCodes[$code->Code] = array();
+                                        $inheritedCodes[$code->Code] = [];
                                     }
                                     $inheritedCodes[$code->Code][] = _t(
                                         'SilverStripe\\Security\\PermissionCheckboxSetField.FromRoleOnGroup',
                                         'inherited from role "{roletitle}" on group "{grouptitle}"',
                                         'A permission inherited from a role on a certain group',
-                                        array(
+                                        [
                                             'roletitle' => $role->dbObject('Title')->forTemplate(),
                                             'grouptitle' => $parent->dbObject('Title')->forTemplate()
-                                        )
+                                        ]
                                     );
                                 }
                             }
@@ -170,14 +170,14 @@ class PermissionCheckboxSetField extends FormField
                         if ($parent->Permissions()->Count()) {
                             foreach ($parent->Permissions() as $permission) {
                                 if (!isset($inheritedCodes[$permission->Code])) {
-                                    $inheritedCodes[$permission->Code] = array();
+                                    $inheritedCodes[$permission->Code] = [];
                                 }
                                 $inheritedCodes[$permission->Code][] =
                                 _t(
                                     'SilverStripe\\Security\\PermissionCheckboxSetField.FromGroup',
                                     'inherited from group "{title}"',
                                     'A permission inherited from a certain group',
-                                    array('title' => $parent->dbObject('Title')->forTemplate())
+                                    ['title' => $parent->dbObject('Title')->forTemplate()]
                                 );
                             }
                         }
@@ -196,10 +196,10 @@ class PermissionCheckboxSetField extends FormField
             foreach ($this->source as $categoryName => $permissions) {
                 $options .= "<li><h5>$categoryName</h5></li>";
                 foreach ($permissions as $code => $permission) {
-                    if (in_array($code, $this->hiddenPermissions)) {
+                    if (in_array($code, $this->hiddenPermissions ?? [])) {
                         continue;
                     }
-                    if (in_array($code, $globalHidden)) {
+                    if (in_array($code, $globalHidden ?? [])) {
                         continue;
                     }
 
@@ -207,8 +207,8 @@ class PermissionCheckboxSetField extends FormField
 
                     $odd = ($odd + 1) % 2;
                     $extraClass = $odd ? 'odd' : 'even';
-                    $extraClass .= ' val' . str_replace(' ', '', $code);
-                    $itemID = $this->ID() . '_' . preg_replace('/[^a-zA-Z0-9]+/', '', $code);
+                    $extraClass .= ' val' . str_replace(' ', '', $code ?? '');
+                    $itemID = $this->ID() . '_' . preg_replace('/[^a-zA-Z0-9]+/', '', $code ?? '');
                     $disabled = $inheritMessage = '';
                     $checked = (isset($uninheritedCodes[$code]) || isset($inheritedCodes[$code]))
                         ? ' checked="checked"'
@@ -225,11 +225,11 @@ class PermissionCheckboxSetField extends FormField
                     } elseif ($this->records && $this->records->Count() > 1 && isset($uninheritedCodes[$code])) {
                         // If code assignments are collected from more than one "source group",
                         // show its origin automatically
-                        $inheritMessage = ' (' . join(', ', $uninheritedCodes[$code]).')';
+                        $inheritMessage = ' (' . join(', ', $uninheritedCodes[$code]) . ')';
                     }
 
                     // Disallow modification of "privileged" permissions unless currently logged-in user is an admin
-                    if (!Permission::check('ADMIN') && in_array($code, $privilegedPermissions)) {
+                    if (!Permission::check('ADMIN') && in_array($code, $privilegedPermissions ?? [])) {
                         $disabled = ' disabled="true"';
                     }
 
@@ -268,15 +268,15 @@ class PermissionCheckboxSetField extends FormField
             }
         }
         if ($this->readonly) {
+            $message = _t(
+                'SilverStripe\\Security\\Permission.UserPermissionsIntro',
+                'Assigning groups to this user will adjust the permissions they have.'
+                . ' See the groups section for details of permissions on individual groups.'
+            );
+
             return
                 "<ul id=\"{$this->ID()}\" class=\"optionset checkboxsetfield{$this->extraClass()}\">\n" .
-                "<li class=\"help\">" .
-                _t(
-                    'SilverStripe\\Security\\Permission.UserPermissionsIntro',
-                    'Assigning groups to this user will adjust the permissions they have.'
-                    . ' See the groups section for details of permissions on individual groups.'
-                ) .
-                "</li>" .
+                "<li class=\"help\">" . $message . "</li>" .
                 $options .
                 "</ul>\n";
         } else {
@@ -303,7 +303,7 @@ class PermissionCheckboxSetField extends FormField
             && !Permission::check('ADMIN')
         ) {
             foreach ($this->value as $id => $bool) {
-                if (in_array($id, $privilegedPermissions)) {
+                if (in_array($id, $privilegedPermissions ?? [])) {
                     unset($this->value[$id]);
                 }
             }

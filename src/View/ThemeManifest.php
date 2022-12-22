@@ -6,6 +6,7 @@ use Psr\SimpleCache\CacheInterface;
 use SilverStripe\Core\Cache\CacheFactory;
 use SilverStripe\Core\Manifest\ManifestFileFinder;
 use SilverStripe\Core\Manifest\ModuleLoader;
+use SilverStripe\Dev\Deprecation;
 
 /**
  * A class which builds a manifest of all themes (which is really just a directory called "templates")
@@ -73,13 +74,18 @@ class ThemeManifest implements ThemeList
     /**
      * @param bool $includeTests Include tests in the manifest
      * @param bool $forceRegen Force the manifest to be regenerated.
+     * @param string[] $ignoredCIConfigs
      */
-    public function init($includeTests = false, $forceRegen = false)
+    public function init($includeTests = false, $forceRegen = false, array $ignoredCIConfigs = [])
     {
+        if (!empty($ignoredCIConfigs)) {
+            Deprecation::notice('5.0.0', 'The $ignoredCIConfigs parameter will be removed in CMS 5');
+        }
+
         // build cache from factory
         if ($this->cacheFactory) {
             $this->cache = $this->cacheFactory->create(
-                CacheInterface::class.'.thememanifest',
+                CacheInterface::class . '.thememanifest',
                 [ 'namespace' => 'thememanifest' . ($includeTests ? '_tests' : '') ]
             );
         }
@@ -87,7 +93,7 @@ class ThemeManifest implements ThemeList
         if (!$forceRegen && $this->cache && ($data = $this->cache->get($this->cacheKey))) {
             $this->themes = $data;
         } else {
-            $this->regenerate($includeTests);
+            $this->regenerate($includeTests, $ignoredCIConfigs);
         }
     }
 
@@ -118,7 +124,7 @@ class ThemeManifest implements ThemeList
     }
 
     /**
-     * @return \string[]
+     * @return string[]
      */
     public function getThemes()
     {
@@ -129,16 +135,22 @@ class ThemeManifest implements ThemeList
      * Regenerates the manifest by scanning the base path.
      *
      * @param bool $includeTests
+     * @param string[] $ignoredCIConfigs
      */
-    public function regenerate($includeTests = false)
+    public function regenerate($includeTests = false, array $ignoredCIConfigs = [])
     {
+        if (!empty($ignoredCIConfigs)) {
+            Deprecation::notice('5.0.0', 'The $ignoredCIConfigs parameter will be removed in CMS 5');
+        }
+
         $finder = new ManifestFileFinder();
-        $finder->setOptions(array(
+        $finder->setOptions([
             'include_themes' => false,
-            'ignore_dirs' => array('node_modules', THEMES_DIR),
+            'ignore_dirs' => ['node_modules', THEMES_DIR],
             'ignore_tests'  => !$includeTests,
-            'dir_callback'  => array($this, 'handleDirectory')
-        ));
+            'ignored_ci_configs' => $ignoredCIConfigs,
+            'dir_callback'  => [$this, 'handleDirectory']
+        ]);
 
         $this->themes = [];
 
@@ -164,8 +176,8 @@ class ThemeManifest implements ThemeList
         if ($basename !== self::TEMPLATES_DIR) {
             return;
         }
-        $dir = trim(substr(dirname($pathname), strlen($this->base)), '/\\');
-        $this->themes[] = "/".$dir;
+        $dir = trim(substr(dirname($pathname ?? ''), strlen($this->base ?? '')), '/\\');
+        $this->themes[] = "/" . $dir;
     }
 
     /**

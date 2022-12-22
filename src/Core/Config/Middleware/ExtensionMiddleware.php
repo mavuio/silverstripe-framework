@@ -39,7 +39,7 @@ class ExtensionMiddleware implements Middleware
         }
 
         foreach ($this->getExtraConfig($class, $config, $excludeMiddleware) as $extra) {
-            $config = Priority::mergeArray($extra, $config);
+            $config = Priority::mergeArray($config, $extra);
         }
         return $config;
     }
@@ -63,15 +63,20 @@ class ExtensionMiddleware implements Middleware
 
         $extensions = $extensionSourceConfig['extensions'];
         foreach ($extensions as $extension) {
+            // Allow removing extensions via yaml config by setting named extension config to null
+            if ($extension === null) {
+                continue;
+            }
+
             list($extensionClass, $extensionArgs) = ClassInfo::parse_class_spec($extension);
             // Strip service name specifier
-            $extensionClass = strtok($extensionClass, '.');
-            if (!class_exists($extensionClass)) {
+            $extensionClass = strtok($extensionClass ?? '', '.');
+            if (!class_exists($extensionClass ?? '')) {
                 throw new InvalidArgumentException("$class references nonexistent $extensionClass in 'extensions'");
             }
 
             // Init extension
-            call_user_func(array($extensionClass, 'add_to_class'), $class, $extensionClass, $extensionArgs);
+            call_user_func([$extensionClass, 'add_to_class'], $class, $extensionClass, $extensionArgs);
 
             // Check class hierarchy from root up
             foreach (ClassInfo::ancestry($extensionClass) as $extensionClassParent) {

@@ -8,9 +8,9 @@ use SilverStripe\ORM\DataObjectInterface;
 use SilverStripe\ORM\FieldType\DBField;
 
 /**
- * Read-only complement of {@link DropdownField}.
+ * Read-only complement of {@link MultiSelectField}.
  *
- * Shows the "human value" of the dropdown field for the currently selected
+ * Shows the "human value" of the MultiSelectField for the currently selected
  * value.
  */
 class LookupField extends MultiSelectField
@@ -30,7 +30,7 @@ class LookupField extends MultiSelectField
      *
      * @return string
      */
-    public function Field($properties = array())
+    public function Field($properties = [])
     {
         $source = ArrayLib::flatten($this->getSource());
         $values = $this->getValueArray();
@@ -46,22 +46,22 @@ class LookupField extends MultiSelectField
         // Don't check if string arguments are matching against the source,
         // as they might be generated HTML diff views instead of the actual values
         if ($this->value && is_string($this->value) && empty($mapped)) {
-            $mapped[] = Convert::raw2xml(trim($this->value));
+            $mapped[] = Convert::raw2xml(trim($this->value ?? ''));
             $values = [];
         }
 
         if ($mapped) {
-            $attrValue = implode(', ', array_values($mapped));
-            $inputValue = implode(', ', array_values($values));
+            $attrValue = implode(', ', array_values($mapped ?? []));
+            $inputValue = implode(', ', array_values($values ?? []));
         } else {
-            $attrValue = '<i>('._t('SilverStripe\\Forms\\FormField.NONE', 'none').')</i>';
+            $attrValue = '<i>(' . _t('SilverStripe\\Forms\\FormField.NONE', 'none') . ')</i>';
             $inputValue = '';
         }
 
-        $properties = array_merge($properties, array(
+        $properties = array_merge($properties, [
             'AttrValue' => DBField::create_field('HTMLFragment', $attrValue),
             'InputValue' => $inputValue
-        ));
+        ]);
 
         return parent::Field($properties);
     }

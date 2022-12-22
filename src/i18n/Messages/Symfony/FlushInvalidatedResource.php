@@ -2,6 +2,7 @@
 
 namespace SilverStripe\i18n\Messages\Symfony;
 
+use SilverStripe\Dev\Deprecation;
 use SilverStripe\Core\Flushable;
 use Symfony\Component\Config\Resource\DirectoryResource;
 use Symfony\Component\Config\Resource\SelfCheckingResourceInterface;
@@ -31,8 +32,8 @@ class FlushInvalidatedResource implements SelfCheckingResourceInterface, \Serial
     {
         // Check mtime of canary
         $canary = static::canary();
-        if (file_exists($canary)) {
-            return filemtime($canary) < $timestamp;
+        if (file_exists($canary ?? '')) {
+            return filemtime($canary ?? '') < $timestamp;
         }
 
         // Rebuild canary
@@ -40,13 +41,39 @@ class FlushInvalidatedResource implements SelfCheckingResourceInterface, \Serial
         return false;
     }
 
+    public function __serialize(): array
+    {
+        return [];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        // no-op
+    }
+
+    /**
+     * The __serialize() magic method will be automatically used instead of this
+     *
+     * @return string
+     * @deprecated 4.12.0 Use __serialize() instead
+     */
     public function serialize()
     {
+        Deprecation::notice('4.12.0', 'Use __serialize() instead');
         return '';
     }
 
+    /**
+     * The __unserialize() magic method will be automatically used instead of this almost all the time
+     * This method will be automatically used if existing serialized data was not saved as an associative array
+     * and the PHP version used in less than PHP 9.0
+     *
+     * @param string $serialized
+     * @deprecated 4.12.0 Use __unserialize() instead
+     */
     public function unserialize($serialized)
     {
+        Deprecation::notice('4.12.0', 'Use __unserialize() instead');
         // no-op
     }
 
@@ -71,6 +98,6 @@ class FlushInvalidatedResource implements SelfCheckingResourceInterface, \Serial
      */
     protected static function touch()
     {
-        touch(static::canary());
+        touch(static::canary() ?? '');
     }
 }
