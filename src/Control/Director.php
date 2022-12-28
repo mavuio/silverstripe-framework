@@ -307,13 +307,13 @@ class Director implements TemplateGlobalProvider
     {
 
         // mwuits: hook for MwVhostMapper - Url-Handling ---------- BEGIN
-            $request = \MwVhostMapper::handleRequestHook4Director($request);
+        $request = \MwVhostMapper::handleRequestHook4Director($request);
         // mwuits: hook for MwVhostMapper - Url-Handling ---------- END
 
 
         Injector::inst()->registerService($request, HTTPRequest::class);
 
-        
+
         $rules = Director::config()->uninherited('rules');
 
         $this->extend('updateRules', $rules);
@@ -418,15 +418,16 @@ class Director implements TemplateGlobalProvider
      *
      * @return SiteTree|Controller
      */
-    public static function get_current_page() {
-		//mwuits added AliasPage handling here --- begin
-		$ret=self::$current_page ? self::$current_page : Controller::curr();
-		if ($ret->AliasPage) {
-			$ret=$ret->AliasPage;
-		}
-		return $ret;
-		//mwuits added AliasPage handling here --- end
-	}
+    public static function get_current_page()
+    {
+        //mwuits added AliasPage handling here --- begin
+        $ret = self::$current_page ? self::$current_page : Controller::curr();
+        if ($ret->AliasPage) {
+            $ret = $ret->AliasPage;
+        }
+        return $ret;
+        //mwuits added AliasPage handling here --- end
+    }
     /**
      * Set the currently active {@link SiteTree} object that is being used to respond to the request.
      *
@@ -1059,8 +1060,7 @@ class Director implements TemplateGlobalProvider
             return $request->isAjax();
         }
 
-        return (
-            isset($_REQUEST['ajax']) ||
+        return (isset($_REQUEST['ajax']) ||
             (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == "XMLHttpRequest")
         );
     }

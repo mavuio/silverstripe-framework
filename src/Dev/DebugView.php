@@ -58,7 +58,7 @@ class DebugView
             'title' => 'Information',
             'class' => 'info'
         ],
-        7=> [
+        7 => [
             'title' => 'SilverStripe\\Dev\\Debug',
             'class' => 'debug'
         ],
@@ -286,7 +286,10 @@ class DebugView
         $output = '<div class="header info ' . $errorType['class'] . '">';
         $output .= "<h1>[" . $errorType['title'] . '] ' . $errstr . "</h1>";
         $output .= "<h3>$httpRequestEnt</h3>";
-        $output .= "<p>Line <strong>$errline</strong> in <strong>$errfile</strong></p>";
+        // $output .= "<p>Line <strong>$errline</strong> in <strong>$errfile</strong></p>";
+        //mwuits: 2022-12-23:
+        $editorlink = "vscode://file/{$errfile}:{$errline}";
+        $output .= "<p>Line <strong>$errline</strong> in <strong><a href=\"$editorlink\">$errfile</a></strong></p>";
         $output .= '</div>';
 
         return $output;
